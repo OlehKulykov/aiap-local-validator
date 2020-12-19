@@ -1,5 +1,5 @@
 ## Apple's in-app purchases local, on-device, receipt validator
-
+[![Build Status](https://travis-ci.org/OlehKulykov/aiap-local-validator.svg?branch=master)](https://travis-ci.org/OlehKulykov/aiap-local-validator)
 
 ### Node.js native module API reference.
 -----------
@@ -65,15 +65,16 @@ If this value exists and the receipt contains different version ⇒ Exception(Er
 Provide the application's bundle identifier to check with the provided receipt.
 If this value exists and the receipt contains different bundle identifier ⇒ Exception(ErrorCode.validation).
 
-### <a name="class_validator_bundle_identifier"></a>Validator.GUID ⇒ ArrayBuffer, ⇐ ArrayBuffer|String
+### <a name="class_validator_guid"></a>Validator.GUID ⇒ ArrayBuffer, ⇐ ArrayBuffer|String
 Provide the application's GUID to check with the provided receipt.
 If this value exists and the receipt contains different GUID ⇒ Exception(ErrorCode.validation).
 
 ### <a name="class_validator_inappreceiptfields"></a>Validator.inAppReceiptFields ⇔ Number 
 Bit-mask value of the 'In App Receipt' fields. By default, all fields are present.
 
-### <a name="class_validator_bundle_identifier"></a>Validator.rootCertificate ⇔ ArrayBuffer
+### <a name="class_validator_root_certificate"></a>Validator.rootCertificate ⇔ ArrayBuffer
 Instead of bundled 'Apple Inc Root Certificate' provide and use your own.
+To reset to a default bundled certificate, provide undefined value.
 
 ### <a name="class_validator_validate"></a>Validator.validate(receipt) ⇔ Object 
 Validates the provided receipt as a Base64 String or as ArrayBuffer and returns the decrypted App Receipt and array of In-App Purchase Receipt's 
