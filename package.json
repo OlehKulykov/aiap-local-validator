@@ -1,0 +1,35 @@
+{
+  "name": "aiap-local-validator",
+  "version": "0.0.1",
+  "description": "Apple's in-app purchase local, on-device, receipt validator",
+  "author": "Oleh Kulykov <olehkulykov@gmail.com>",
+  "license": "SEE LICENSE IN LICENSE",
+  "keywords": [
+    "Receipt validation",
+    "App Store receipt validation",
+    "Apple in-app purchases"
+  ],
+  "main": "index.js",
+  "scripts": {
+    "install": "node-gyp clean configure build --release",
+    "dev_install": "node-gyp build --release",
+    "test": "node test/tests.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OlehKulykov/aiap-local-validator.git"
+  },
+  "engines": {
+    "node": ">=13.0.0",
+    "npm": ">=6.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "gypfile": true,
+  "files": [
+    "binding.gyp",
+    "index.js",
+    "src/validator.cpp",
+    "test/tests.js"
+  ]
+}

@@ -1,0 +1,34 @@
+language: cpp
+
+os:
+  - linux
+  - osx
+
+compiler:
+  - gcc
+  - clang
+
+before_script:
+  - mkdir build
+
+script:
+  - cd build
+  - cd ..
+  - nvm install 13
+  - nvm use 13
+  - npm run install
+  - npm run test
+  - nvm install 14
+  - nvm use 14
+  - npm run install
+  - npm run test
+  - nvm install 15
+  - nvm use 15
+  - npm run install
+  - npm run test
+
+branches:
+  only:
+    - master
+    - dev
+    - tmp
