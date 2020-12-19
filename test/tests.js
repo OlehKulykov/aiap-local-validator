@@ -1,6 +1,5 @@
 'use strict';
 
-const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require('constants');
 const https = require('https');
 const { Validator, ErrorCode, InAppReceiptField } = require('./../');
 
@@ -34,7 +33,7 @@ request.on('error', error => {
 request.end();
 
 const validator = new Validator();
-    
+
 if (typeof validator.bundleIdentifier !== 'undefined') throw '';
 validator.bundleIdentifier = 'my.com';
 if (typeof validator.bundleIdentifier !== 'string') throw '';
@@ -48,7 +47,7 @@ if (typeof validator.version !== 'string') throw '';
 if (validator.version !== '123') throw '';
 validator.version = undefined;
 if (typeof validator.version !== 'undefined') throw '';
-    
+
 if (typeof validator.GUID !== 'undefined') throw '';
 validator.GUID = '0DlJQYXPRZuCYxbBYR6fXA==';
 if (typeof validator.GUID !== 'object') throw '';
