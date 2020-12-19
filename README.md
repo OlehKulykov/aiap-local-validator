@@ -10,12 +10,25 @@
     * [.input](#enum_errorcode_input) ⇒ ```Number```
     * [.format](#enum_errorcode_format) ⇒ ```Number```
     * [.validation](#enum_errorcode_validation) ⇒ ```Number```
+  * [InAppReceiptField](#enum_inappreceiptfield)
+    * [.quantity](#enum_inappreceiptfield_quantity) ⇒ ```Number```
+    * [.web_order_line_item_id](#enum_inappreceiptfield_web_order_line_item_id) ⇒ ```Number```
+    * [.is_in_intro_offer_period](#enum_inappreceiptfield_is_in_intro_offer_period) ⇒ ```Number```
+    * [.product_id](#enum_inappreceiptfield_product_id) ⇒ ```Number```
+    * [.transaction_id](#enum_inappreceiptfield_transaction_id) ⇒ ```Number```
+    * [.original_transaction_id](#enum_inappreceiptfield_original_transaction_id) ⇒ ```Number```
+    * [.purchase_date](#enum_inappreceiptfield_purchase_date) ⇒ ```Number```
+    * [.original_purchase_date](#enum_inappreceiptfield_original_purchase_date) ⇒ ```Number```
+    * [.expires_date](#enum_inappreceiptfield_expires_date) ⇒ ```Number```
+    * [.cancellation_date](#enum_inappreceiptfield_cancellation_date) ⇒ ```Number```
+    * [.all](#enum_inappreceiptfield_all) ⇒ ```Number```
   * [Validator](#class_validator)
     * [new Validator()](#class_validator_new)
     * [Validator()](#class_validator_new) ⇒ <code>[new Validator()](#class_validator_new)</code>
     * [.version](#class_validator_version) ⇔ ```String```|```Undefined```
     * [.bundleIdentifier](#class_validator_bundle_identifier) ⇔ ```String```|```Undefined```
     * [.GUID](#class_validator_guid) ⇒ ```ArrayBuffer```, ⇐ ```ArrayBuffer```|```String```
+    * [.inAppReceiptFields](#class_validator_inappreceiptfields)  ⇔ ```Number```
     * [.rootCertificate](#class_validator_root_certificate) ⇔ ```ArrayBuffer```
     * [.validate(receipt)](#class_validator_validate) ⇒ ```Object```
     
@@ -35,6 +48,9 @@ The receipt has unsupported type of the data or property version. Need update th
 #### <a name="enum_errorcode_validation"></a>ErrorCode.validation ⇒ Number
 The provided input arguments and the receipt can't be evaluated. 
 
+### <a name="enum_inappreceiptfield"></a>InAppReceiptField
+Represents bit-mask values of the 'InAppReceiptField' fields. The name of the emum values are same as in ouput.
+
 ### <a name="class_validator"></a>Validator
 Exported validator.
 
@@ -52,6 +68,9 @@ If this value exists and the receipt contains different bundle identifier ⇒ Ex
 ### <a name="class_validator_bundle_identifier"></a>Validator.GUID ⇒ ArrayBuffer, ⇐ ArrayBuffer|String
 Provide the application's GUID to check with the provided receipt.
 If this value exists and the receipt contains different GUID ⇒ Exception(ErrorCode.validation).
+
+### <a name="class_validator_inappreceiptfields"></a>Validator.inAppReceiptFields ⇔ Number 
+Bit-mask value of the 'In App Receipt' fields. By default, all fields are present.
 
 ### <a name="class_validator_bundle_identifier"></a>Validator.rootCertificate ⇔ ArrayBuffer
 Instead of bundled 'Apple Inc Root Certificate' provide and use your own.
@@ -83,13 +102,14 @@ https://developer.apple.com/library/archive/releasenotes/General/ValidateAppStor
 -----------
 
 ```javascript
-const { Validator, ErrorCode } = require('aiap-local-validator');
+const { Validator, ErrorCode, InAppReceiptField } = require('aiap-local-validator');
 
 try {
     const validator = new Validator();
     validator.bundleIdentifier = 'my.com';
     validator.version = '123';
     validator.GUID = 'Base64 GUID' | ArrayBuffer;
+    validator.inAppReceiptFields = InAppReceiptField.expires_date | InAppReceiptField.product_id;
     
     const receipt = validator.validate('Base64 receipt' | ArrayBuffer);
     // User 'receipt'. For more info, see 'Supported fields' section. 

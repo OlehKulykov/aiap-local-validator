@@ -1,6 +1,37 @@
 'use strict';
 
-const { Validator, ErrorCode } = require('./../');
+const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require('constants');
+const https = require('https');
+const { Validator, ErrorCode, InAppReceiptField } = require('./../');
+
+function appendBuffer(buffer1, buffer2) {
+    let tmp = new Uint8Array(buffer1.byteLength + buffer2.byteLength);
+    tmp.set(new Uint8Array(buffer1), 0);
+    tmp.set(new Uint8Array(buffer2), buffer1.byteLength);
+    return tmp.buffer;
+};
+
+const options = new URL('https://www.apple.com/appleca/AppleIncRootCertificate.cer');
+const request = https.request(options, resp => {
+    let data = undefined;
+    resp.on('data', chunk => {
+        data = data ? appendBuffer(data, chunk) : chunk;
+    });
+    resp.on('end', () => {
+        if (!data) throw '';
+        const validator = new Validator();
+        const cert = new Uint8Array(validator.rootCertificate);
+        if (data.byteLength !== cert.byteLength) throw '';
+        for (let i = 0, n = data.byteLength; i < n; i++) {
+            if (data[i] !== cert[i]) throw '';
+        }
+        console.log('Root certificate: ok');
+    });
+});
+request.on('error', error => {
+    throw error;
+});
+request.end();
 
 const validator = new Validator();
     
@@ -29,6 +60,11 @@ if (typeof validator.rootCertificate !== 'object') throw '';
 validator.rootCertificate = undefined;
 if (typeof validator.rootCertificate !== 'object') throw '';
 if (validator.rootCertificate.byteLength <= 0) throw '';
+
+if (typeof validator.inAppReceiptFields !== 'number') throw '';
+let fields = InAppReceiptField.quantity | InAppReceiptField.expires_date | InAppReceiptField.product_id;
+validator.inAppReceiptFields = fields;
+if (validator.inAppReceiptFields !== fields) throw '';
 
 let passed = false;
 try {

@@ -84,7 +84,8 @@ namespace validator {
         _line(line) {
             const size_t len = what ? strlen(what) : 0;
             if (len && (_what = static_cast<char *>(malloc(len + 1)))) {
-                strncpy(_what, what, len);
+                memcpy(_what, what, len);
+                _what[len] = 0;
             }
     }
 
@@ -128,22 +129,36 @@ namespace validator {
         GUIDValidationFieldAll          = (GUIDValidationFieldBundleId | GUIDValidationFieldOpaqueValue | GUIDValidationFieldSHA1)
     };
 
+    enum InAppReceiptField  {
+        InAppReceiptFieldQuantity               = 1 << 0,
+        InAppReceiptFieldWebOrderLineItemId     = 1 << 1,
+        InAppReceiptFieldIsInIntroOfferPeriod   = 1 << 2,
+        InAppReceiptFieldProductId              = 1 << 3,
+        InAppReceiptFieldTransactionId          = 1 << 4,
+        InAppReceiptFieldOriginalTransactionId  = 1 << 5,
+        InAppReceiptFieldPurchaseDate           = 1 << 6,
+        InAppReceiptFieldOriginalPurchaseDate   = 1 << 7,
+        InAppReceiptFieldExpiresDate            = 1 << 8,
+        InAppReceiptFieldCancellationDate       = 1 << 9,
+        InAppReceiptFieldAll                    = 0xFFFF
+    };
+    
     struct BIODeleter final {
         void operator()(BIO * b) const {
             if (b) {
-                BIO_free(b);
+                BIO_free_all(b);
             }
         };
     };
-
-    struct X509_STOREDeleter final {
+    
+    struct X509StoreDeleter final {
         void operator()(X509_STORE * s) const {
             if (s) {
                 X509_STORE_free(s);
             }
         };
     };
-
+    
     struct PKCS7Deleter final {
         void operator()(PKCS7 * p) const {
             if (p) {
@@ -159,7 +174,7 @@ namespace validator {
             }
         };
     };
-
+    
     struct ASN1IntDeleter final {
         void operator()(ASN1_INTEGER * i) const {
             if (i) {
@@ -167,10 +182,40 @@ namespace validator {
             }
         };
     };
-
+    
+    struct ASN1Utf8StringDeleter final {
+        void operator()(ASN1_UTF8STRING * s) const {
+            if (s) {
+                ASN1_UTF8STRING_free(s);
+            }
+        };
+    };
+    
+    struct ASN1Ia5StringDeleter final {
+        void operator()(ASN1_IA5STRING * s) const {
+            if (s) {
+                ASN1_IA5STRING_free(s);
+            }
+        };
+    };
+    
     template<typename T>
     T max(const T a, const T b) {
         return (a > b) ? (a) : (b);
+    }
+
+    template<typename T>
+    std::vector<T> fromBase64(const char * base64String) {
+        using namespace appleBase64;
+        
+        const auto theoreticalLength = Base64decode_len(base64String);
+        if (theoreticalLength > INT_MAX) throw Exception(ExceptionCodeInput, __LINE__, "Base64 is too big");
+        std::vector<T> res(theoreticalLength);
+        const auto decodedLen = Base64decode(reinterpret_cast<char *>(res.data()), base64String);
+        if (theoreticalLength != decodedLen) {
+            res.resize(decodedLen);
+        }
+        return res;
     }
 
     class Validator final: public node::ObjectWrap {
@@ -187,43 +232,16 @@ namespace validator {
             long _SHA1HashSize = 0;
             long _bundleIdentifierSize = 0;
         } _asn1ReceiptFields;
+        InAppReceiptField _inAppReceiptFields = InAppReceiptFieldAll;
         
         std::unique_ptr<BIO, BIODeleter> receiptPayload(std::vector<uint8_t> && receipts);
         void validateInAppReceiptPayload(const unsigned char * payload, const size_t payloadLen, Isolate * isolate, Local<Object> receiptObject);
         
     public:
-        void setVersion(std::string && version) noexcept {
-            _version = std::move(version);
-        }
-        
-        void setBundleIdentifier(std::string && bundleIdentifier) noexcept {
-            _bundleIdentifier = std::move(bundleIdentifier);
-        }
-        
-        void setGUID(std::vector<uint8_t> && GUID) noexcept {
-            _GUID = std::move(GUID);
-        }
-        
-        void setRootCertificate(std::vector<uint8_t> && rootCertificate) noexcept {
-            _rootCertificate = std::move(rootCertificate);
-        }
-        
         void validate(std::vector<uint8_t> && inReceipts, Isolate * isolate, Local<Object> receiptObject);
         
-        template<typename T>
-        static std::vector<T> fromApplesBase64(const char * base64String) {
-            using namespace appleBase64;
-            
-            const auto theoreticalLength = Base64decode_len(base64String);
-            if (theoreticalLength > INT_MAX) throw Exception(ExceptionCodeInput, __LINE__, "Base64 is too big");
-            std::vector<T> res(theoreticalLength);
-            const auto decodedLen = Base64decode(reinterpret_cast<char *>(res.data()), base64String);
-            if (theoreticalLength != decodedLen) {
-                res.resize(decodedLen);
-            }
-            return res;
-        }
-        
+        static void InAppReceiptFields(Local<String> property, const PropertyCallbackInfo<Value> & info);
+        static void SetInAppReceiptFields(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> & info);
         static void RootCertificate(Local<String> property, const PropertyCallbackInfo<Value> & info);
         static void SetRootCertificate(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> & info);
         static void GUID(Local<String> property, const PropertyCallbackInfo<Value> & info);
@@ -252,7 +270,7 @@ namespace validator {
         std::unique_ptr<BIO, BIODeleter> bx509(bioPtr, BIODeleter());
         if (!bx509) throw Exception(ExceptionCodeInternal, __LINE__, "X509 Apple Inc Root Certificate");
         
-        std::unique_ptr<X509_STORE, X509_STOREDeleter> store(X509_STORE_new(), X509_STOREDeleter());
+        std::unique_ptr<X509_STORE, X509StoreDeleter> store(X509_STORE_new(), X509StoreDeleter());
         if (!store) throw Exception(ExceptionCodeInternal, __LINE__, "X509 store");
         
         std::unique_ptr<BIO, BIODeleter> bOut(BIO_new(BIO_s_mem()), BIODeleter());
@@ -280,109 +298,120 @@ namespace validator {
         ASN1_get_object(&ptr, &len, &type, &cls, end - ptr);
         if (type != V_ASN1_SET) throw Exception(ExceptionCodeFormat, __LINE__);
         
-        std::unique_ptr<ASN1_INTEGER, ASN1IntDeleter> uniqReusableInt(ASN1_INTEGER_new(), ASN1IntDeleter());
-        ASN1_INTEGER * reusableInt = uniqReusableInt.get(), * tmpInt;
-        if (!reusableInt) throw Exception(ExceptionCodeInternal, __LINE__);
-
         while (ptr < end) {
             ASN1_get_object(&ptr, &len, &type, &cls, end - ptr);
             if (type != V_ASN1_SEQUENCE) throw Exception(ExceptionCodeFormat, __LINE__);
             
-            const auto * sequenceEnd = ptr + len;
+            const unsigned char * sequenceEnd = ptr + len, * nextPtr;
             
-            if ((tmpInt = d2i_ASN1_INTEGER(&reusableInt, &ptr, sequenceEnd - ptr)) != reusableInt) throw Exception(tmpInt ? ExceptionCodeInternal : ExceptionCodeFormat, __LINE__);
-            const auto attrType = ASN1_INTEGER_get(tmpInt);
+            std::unique_ptr<ASN1_INTEGER, ASN1IntDeleter> attrTypeVal(d2i_ASN1_INTEGER(nullptr, &ptr, sequenceEnd - ptr), ASN1IntDeleter());
+            if (!attrTypeVal) throw Exception(ExceptionCodeFormat, __LINE__, "Attribute type");
+            const auto attrType = ASN1_INTEGER_get(attrTypeVal.get());
             
-            if ((tmpInt = d2i_ASN1_INTEGER(&reusableInt, &ptr, sequenceEnd - ptr)) != reusableInt) throw Exception(tmpInt ? ExceptionCodeInternal : ExceptionCodeFormat, __LINE__);
-            if (ASN1_INTEGER_get(tmpInt) != 1) throw Exception(ExceptionCodeFormat, __LINE__); // unsupported attribute version -> check docs -> update code
+            std::unique_ptr<ASN1_INTEGER, ASN1IntDeleter> attrVersionVal(d2i_ASN1_INTEGER(nullptr, &ptr, sequenceEnd - ptr), ASN1IntDeleter());
+            if (!attrVersionVal) throw Exception(ExceptionCodeFormat, __LINE__, "Attribute version");
+            if (ASN1_INTEGER_get(attrVersionVal.get()) != 1) throw Exception(ExceptionCodeFormat, __LINE__); // unsupported attribute version -> check docs -> update code
             
             ASN1_get_object(&ptr, &len, &type, &cls, sequenceEnd - ptr);
             if (type != V_ASN1_OCTET_STRING) throw Exception(ExceptionCodeFormat, __LINE__);
             
-            ASN1_UTF8STRING * tmpUtf8;
-            ASN1_IA5STRING * tmpIA5;
+            nextPtr = ptr + len;
             
             switch (attrType) {
                 case 1701: // Quantity, INTEGER, 'quantity'
-                    if ((tmpInt = d2i_ASN1_INTEGER(&reusableInt, &ptr, sequenceEnd - ptr)) == reusableInt) {
-                        receiptObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "quantity").ToLocalChecked(), Number::New(isolate, ASN1_INTEGER_get(tmpInt)), None).Check();
-                    } else { throw Exception(tmpInt ? ExceptionCodeInternal : ExceptionCodeFormat, __LINE__, "Quantity"); }
+                    if (_inAppReceiptFields & InAppReceiptFieldQuantity) {
+                        std::unique_ptr<ASN1_INTEGER, ASN1IntDeleter> intVal(d2i_ASN1_INTEGER(nullptr, &ptr, sequenceEnd - ptr), ASN1IntDeleter());
+                        if (!intVal) throw Exception(ExceptionCodeFormat, __LINE__, "Quantity");
+                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "quantity").ToLocalChecked(), Number::New(isolate, ASN1_INTEGER_get(intVal.get()))).Check();
+                    }
                     break;
                     
                 case 1711: // Web Order Line Item ID, INTEGER, 'web_order_line_item_id'
-                    if ((tmpInt = d2i_ASN1_INTEGER(&reusableInt, &ptr, sequenceEnd - ptr)) == reusableInt) {
-                        receiptObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "web_order_line_item_id").ToLocalChecked(), Number::New(isolate, ASN1_INTEGER_get(tmpInt)), None).Check();
-                    } else { throw Exception(tmpInt ? ExceptionCodeInternal : ExceptionCodeFormat, __LINE__, "Web Order Line Item ID"); }
+                    if (_inAppReceiptFields & InAppReceiptFieldWebOrderLineItemId) {
+                        std::unique_ptr<ASN1_INTEGER, ASN1IntDeleter> intVal(d2i_ASN1_INTEGER(nullptr, &ptr, sequenceEnd - ptr), ASN1IntDeleter());
+                        if (!intVal) throw Exception(ExceptionCodeFormat, __LINE__, "Web Order Line Item ID");
+                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "web_order_line_item_id").ToLocalChecked(), Number::New(isolate, ASN1_INTEGER_get(intVal.get()))).Check();
+                    }
                     break;
                     
                 case 1719: // Subscription Introductory Price Period, INTEGER, 'is_in_intro_offer_period'
-                    if ((tmpInt = d2i_ASN1_INTEGER(&reusableInt, &ptr, sequenceEnd - ptr)) == reusableInt) {
-                        receiptObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "is_in_intro_offer_period").ToLocalChecked(), Number::New(isolate, ASN1_INTEGER_get(tmpInt)), None).Check();
-                    } else { throw Exception(tmpInt ? ExceptionCodeInternal : ExceptionCodeFormat, __LINE__, "Subscription Introductory Price Period"); }
+                    if (_inAppReceiptFields & InAppReceiptFieldIsInIntroOfferPeriod) {
+                        std::unique_ptr<ASN1_INTEGER, ASN1IntDeleter> intVal(d2i_ASN1_INTEGER(nullptr, &ptr, sequenceEnd - ptr), ASN1IntDeleter());
+                        if (!intVal) throw Exception(ExceptionCodeFormat, __LINE__, "Subscription Introductory Price Period");
+                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "is_in_intro_offer_period").ToLocalChecked(), Number::New(isolate, ASN1_INTEGER_get(intVal.get()))).Check();
+                    }
                     break;
                     
                 case 1702: // Product Identifier, UTF8STRING, 'product_id'
-                    if ((tmpUtf8 = d2i_ASN1_UTF8STRING(nullptr, &ptr, sequenceEnd - ptr))) {
-                        receiptObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "product_id").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(tmpUtf8->data), NewStringType::kNormal, static_cast<int>(tmpUtf8->length)).ToLocalChecked(), None).Check();
-                        ASN1_UTF8STRING_free(tmpUtf8);
-                    } else { throw Exception(ExceptionCodeFormat, __LINE__, "Product Identifier"); }
+                    if (_inAppReceiptFields & InAppReceiptFieldProductId) {
+                        std::unique_ptr<ASN1_UTF8STRING, ASN1Utf8StringDeleter> utf8String(d2i_ASN1_UTF8STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Utf8StringDeleter());
+                        if (!utf8String) throw Exception(ExceptionCodeFormat, __LINE__, "Product Identifier");
+                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "product_id").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(utf8String->data), NewStringType::kNormal, static_cast<int>(utf8String->length)).ToLocalChecked()).Check();
+                    }
                     break;
                     
                 case 1703: // Transaction Identifier, UTF8STRING, 'transaction_id'
-                    if ((tmpUtf8 = d2i_ASN1_UTF8STRING(nullptr, &ptr, sequenceEnd - ptr))) {
-                        receiptObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "transaction_id").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(tmpUtf8->data), NewStringType::kNormal, static_cast<int>(tmpUtf8->length)).ToLocalChecked(), None).Check();
-                        ASN1_UTF8STRING_free(tmpUtf8);
-                    } else { throw Exception(ExceptionCodeFormat, __LINE__, "Transaction Identifier"); }
+                    if (_inAppReceiptFields & InAppReceiptFieldTransactionId) {
+                        std::unique_ptr<ASN1_UTF8STRING, ASN1Utf8StringDeleter> utf8String(d2i_ASN1_UTF8STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Utf8StringDeleter());
+                        if (!utf8String) throw Exception(ExceptionCodeFormat, __LINE__, "Transaction Identifier");
+                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "transaction_id").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(utf8String->data), NewStringType::kNormal, static_cast<int>(utf8String->length)).ToLocalChecked()).Check();
+                    }
                     break;
-                    
+
                 case 1705: // Original Transaction Identifier, UTF8STRING, 'original_transaction_id'
-                    if ((tmpUtf8 = d2i_ASN1_UTF8STRING(nullptr, &ptr, sequenceEnd - ptr))) {
-                        receiptObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "original_transaction_id").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(tmpUtf8->data), NewStringType::kNormal, static_cast<int>(tmpUtf8->length)).ToLocalChecked(), None).Check();
-                        ASN1_UTF8STRING_free(tmpUtf8);
-                    } else { throw Exception(ExceptionCodeFormat, __LINE__, "Original Transaction Identifier"); }
+                    if (_inAppReceiptFields & InAppReceiptFieldOriginalTransactionId) {
+                        std::unique_ptr<ASN1_UTF8STRING, ASN1Utf8StringDeleter> utf8String(d2i_ASN1_UTF8STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Utf8StringDeleter());
+                        if (!utf8String) throw Exception(ExceptionCodeFormat, __LINE__, "Original Transaction Identifier");
+                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "original_transaction_id").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(utf8String->data), NewStringType::kNormal, static_cast<int>(utf8String->length)).ToLocalChecked()).Check();
+                    }
                     break;
-                
+
                 case 1704: // Purchase Date, IA5STRING, interpreted as an RFC 3339 date, 'purchase_date'
-                    if ((tmpIA5 = d2i_ASN1_IA5STRING(nullptr, &ptr, sequenceEnd - ptr))) {
-                        receiptObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "purchase_date").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(tmpIA5->data), NewStringType::kNormal, static_cast<int>(tmpIA5->length)).ToLocalChecked(), None).Check();
-                        ASN1_IA5STRING_free(tmpIA5);
-                    } else { throw Exception(ExceptionCodeFormat, __LINE__, "Purchase Date"); }
+                    if (_inAppReceiptFields & InAppReceiptFieldPurchaseDate) {
+                        std::unique_ptr<ASN1_IA5STRING, ASN1Ia5StringDeleter> ia5String(d2i_ASN1_IA5STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Ia5StringDeleter());
+                        if (!ia5String) throw Exception(ExceptionCodeFormat, __LINE__, "Purchase Date");
+                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "purchase_date").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(ia5String->data), NewStringType::kNormal, static_cast<int>(ia5String->length)).ToLocalChecked()).Check();
+                    }
                     break;
-                    
-                case 1706: { // Original Purchase Date, IA5STRING, interpreted as an RFC 3339 date, 'original_purchase_date'
-                    if ((tmpIA5 = d2i_ASN1_IA5STRING(nullptr, &ptr, sequenceEnd - ptr))) {
-                        receiptObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "original_purchase_date").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(tmpIA5->data), NewStringType::kNormal, static_cast<int>(tmpIA5->length)).ToLocalChecked(), None).Check();
-                        ASN1_IA5STRING_free(tmpIA5);
-                    } else { throw Exception(ExceptionCodeFormat, __LINE__, "Original Purchase Date"); }
-                } break;
-                    
+
+                case 1706: // Original Purchase Date, IA5STRING, interpreted as an RFC 3339 date, 'original_purchase_date'
+                    if (_inAppReceiptFields & InAppReceiptFieldOriginalPurchaseDate) {
+                        std::unique_ptr<ASN1_IA5STRING, ASN1Ia5StringDeleter> ia5String(d2i_ASN1_IA5STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Ia5StringDeleter());
+                        if (!ia5String) throw Exception(ExceptionCodeFormat, __LINE__, "Original Purchase Date");
+                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "original_purchase_date").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(ia5String->data), NewStringType::kNormal, static_cast<int>(ia5String->length)).ToLocalChecked()).Check();
+                    }
+                    break;
+
                 case 1708: // Subscription Expiration Date, IA5STRING, interpreted as an RFC 3339 date, 'expires_date'
-                    if ((tmpIA5 = d2i_ASN1_IA5STRING(nullptr, &ptr, sequenceEnd - ptr))) {
-                        receiptObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "expires_date").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(tmpIA5->data), NewStringType::kNormal, static_cast<int>(tmpIA5->length)).ToLocalChecked(), None).Check();
-                        ASN1_IA5STRING_free(tmpIA5);
-                    } else { throw Exception(ExceptionCodeFormat, __LINE__, "Subscription Expiration Date"); }
+                    if (_inAppReceiptFields & InAppReceiptFieldExpiresDate) {
+                        std::unique_ptr<ASN1_IA5STRING, ASN1Ia5StringDeleter> ia5String(d2i_ASN1_IA5STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Ia5StringDeleter());
+                        if (!ia5String) throw Exception(ExceptionCodeFormat, __LINE__, "Subscription Expiration Date");
+                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "expires_date").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(ia5String->data), NewStringType::kNormal, static_cast<int>(ia5String->length)).ToLocalChecked()).Check();
+                    }
                     break;
-                    
+
                 case 1712: // Cancellation Date, IA5STRING, interpreted as an RFC 3339 date, 'cancellation_date'
-                    if ((tmpIA5 = d2i_ASN1_IA5STRING(nullptr, &ptr, sequenceEnd - ptr))) {
-                        receiptObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "cancellation_date").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(tmpIA5->data), NewStringType::kNormal, static_cast<int>(tmpIA5->length)).ToLocalChecked(), None).Check();
-                        ASN1_IA5STRING_free(tmpIA5);
-                    } else { throw Exception(ExceptionCodeFormat, __LINE__, "Cancellation Date"); }
+                    if (_inAppReceiptFields & InAppReceiptFieldCancellationDate) {
+                        std::unique_ptr<ASN1_IA5STRING, ASN1Ia5StringDeleter> ia5String(d2i_ASN1_IA5STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Ia5StringDeleter());
+                        if (!ia5String) throw Exception(ExceptionCodeFormat, __LINE__, "Cancellation Date");
+                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "cancellation_date").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(ia5String->data), NewStringType::kNormal, static_cast<int>(ia5String->length)).ToLocalChecked()).Check();
+                    }
                     break;
                     
                 default:
-                    ptr += len;
                     break;
             }
+            
+            ptr = nextPtr;
         }
     }
     
     void Validator::validate(std::vector<uint8_t> && inReceipts, Isolate * isolate, Local<Object> receiptObject) {
         HandleScope handleScope(isolate);
-        Local<Context> context = isolate->GetCurrentContext();
+        auto context = isolate->GetCurrentContext();
         auto payloadBio = receiptPayload(std::move(inReceipts));
         unsigned char * payload = nullptr;
-        size_t payloadLen = BIO_get_mem_data(payloadBio.get(), &payload);
+        auto payloadLen = BIO_get_mem_data(payloadBio.get(), &payload);
         
         const unsigned char * ptr = payload, * end = ptr + payloadLen;
         long len;
@@ -390,10 +419,6 @@ namespace validator {
         
         ASN1_get_object(&ptr, &len, &type, &cls, end - ptr);
         if (type != V_ASN1_SET) throw Exception(ExceptionCodeFormat, __LINE__);
-        
-        std::unique_ptr<ASN1_INTEGER, ASN1IntDeleter> uniqReusableInt(ASN1_INTEGER_new(), ASN1IntDeleter());
-        ASN1_INTEGER * reusableInt = uniqReusableInt.get(), * tmpInt;
-        if (!reusableInt) throw Exception(ExceptionCodeInternal, __LINE__);
         
         auto receiptsArray = Array::New(isolate);
         uint32_t receiptsArrayIndex = 0;
@@ -408,11 +433,13 @@ namespace validator {
             
             const unsigned char * sequenceEnd = ptr + len;
             
-            if ((tmpInt = d2i_ASN1_INTEGER(&reusableInt, &ptr, sequenceEnd - ptr)) != reusableInt) throw Exception(tmpInt ? ExceptionCodeInternal : ExceptionCodeFormat, __LINE__);
-            const auto attrType = ASN1_INTEGER_get(tmpInt);
+            std::unique_ptr<ASN1_INTEGER, ASN1IntDeleter> attrTypeVal(d2i_ASN1_INTEGER(nullptr, &ptr, sequenceEnd - ptr), ASN1IntDeleter());
+            if (!attrTypeVal) throw Exception(ExceptionCodeFormat, __LINE__, "Attribute type");
+            const auto attrType = ASN1_INTEGER_get(attrTypeVal.get());
             
-            if ((tmpInt = d2i_ASN1_INTEGER(&reusableInt, &ptr, sequenceEnd - ptr)) != reusableInt) throw Exception(tmpInt ? ExceptionCodeInternal : ExceptionCodeFormat, __LINE__);
-            const long attrVersion = ASN1_INTEGER_get(tmpInt);
+            std::unique_ptr<ASN1_INTEGER, ASN1IntDeleter> attrVersionVal(d2i_ASN1_INTEGER(nullptr, &ptr, sequenceEnd - ptr), ASN1IntDeleter());
+            if (!attrVersionVal) throw Exception(ExceptionCodeFormat, __LINE__, "Attribute version");
+            const long attrVersion = ASN1_INTEGER_get(attrVersionVal.get());
             
             ASN1_get_object(&ptr, &len, &type, &cls, sequenceEnd - ptr);
             if (type != V_ASN1_OCTET_STRING) throw Exception(ExceptionCodeFormat, __LINE__);
@@ -423,18 +450,17 @@ namespace validator {
                 case 2: // Bundle Identifier, UTF8STRING, 'bundle_id'
                     if (attrVersion == 1) {
                         const unsigned char * tmpP = ptr;
-                        ASN1_UTF8STRING * tmpUtf8 = d2i_ASN1_UTF8STRING(nullptr, &tmpP, len);
+                        std::unique_ptr<ASN1_UTF8STRING, ASN1Utf8StringDeleter> tmpUtf8(d2i_ASN1_UTF8STRING(nullptr, &tmpP, len), ASN1Utf8StringDeleter());
                         if (!tmpUtf8) throw Exception(ExceptionCodeFormat, __LINE__, "Bundle Identifier");
                         if (validateBundleIdentifier) {
                             validateBundleIdentifier = false;
                             const int res = (tmpUtf8->data && tmpUtf8->length >= 0) ? strncmp(_bundleIdentifier.c_str(), reinterpret_cast<const char *>(tmpUtf8->data), max<size_t>(_bundleIdentifier.length(), static_cast<size_t>(tmpUtf8->length))) : -1;
-                            if (res != 0) { ASN1_UTF8STRING_free(tmpUtf8); throw Exception(ExceptionCodeValidation, __LINE__, "Bundle Identifier"); }
+                            if (res != 0) throw Exception(ExceptionCodeValidation, __LINE__, "Bundle Identifier");
                         }
                         _asn1ReceiptFields._bundleIdentifier = ptr;
                         _asn1ReceiptFields._bundleIdentifierSize = len;
                         guidFields |= GUIDValidationFieldBundleId;
-                        receiptObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "bundle_id").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(tmpUtf8->data), NewStringType::kNormal, static_cast<int>(tmpUtf8->length)).ToLocalChecked(), None).Check();
-                        ASN1_UTF8STRING_free(tmpUtf8);
+                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "bundle_id").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(tmpUtf8->data), NewStringType::kNormal, static_cast<int>(tmpUtf8->length)).ToLocalChecked()).Check();
                     } else {
                         throw Exception(ExceptionCodeFormat, __LINE__, "Bundle Identifier version"); // unsupported attribute version -> check docs -> update code
                     }
@@ -463,6 +489,7 @@ namespace validator {
                 validateGUID = false;
                 if (!_asn1ReceiptFields._bundleIdentifier || !_asn1ReceiptFields._opaqueValueV2 || !_asn1ReceiptFields._SHA1Hash) throw Exception(ExceptionCodeValidation, __LINE__);
                 EVP_MD_CTX * evp_ctx = EVP_MD_CTX_create();
+                if (!evp_ctx) throw Exception(ExceptionCodeInternal, __LINE__);
                 EVP_MD_CTX_init(evp_ctx);
                 uint8_t digest[20] = { 0 };
                 EVP_DigestInit_ex(evp_ctx, EVP_sha1(), nullptr);
@@ -478,15 +505,14 @@ namespace validator {
                 case 3: // App Version, UTF8STRING, 'application_version'
                     if (attrVersion == 1) {
                         const unsigned char * tmpP = ptr;
-                        ASN1_UTF8STRING * tmpUtf8 = d2i_ASN1_UTF8STRING(nullptr, &tmpP, len);
+                        std::unique_ptr<ASN1_UTF8STRING, ASN1Utf8StringDeleter> tmpUtf8(d2i_ASN1_UTF8STRING(nullptr, &tmpP, len), ASN1Utf8StringDeleter());
                         if (!tmpUtf8) throw Exception(ExceptionCodeFormat, __LINE__, "App Version");
                         if (validateVersion) {
                             validateVersion = false;
                             const int res = (tmpUtf8->data && tmpUtf8->length >= 0) ? strncmp(_version.c_str(), reinterpret_cast<const char *>(tmpUtf8->data), max<size_t>(_version.length(), static_cast<size_t>(tmpUtf8->length))) : -1;
-                            if (res != 0) { ASN1_UTF8STRING_free(tmpUtf8); throw Exception(ExceptionCodeValidation, __LINE__, "App Version"); }
+                            if (res != 0) throw Exception(ExceptionCodeValidation, __LINE__, "App Version");
                         }
-                        receiptObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "application_version").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(tmpUtf8->data), NewStringType::kNormal, static_cast<int>(tmpUtf8->length)).ToLocalChecked(), None).Check();
-                        ASN1_UTF8STRING_free(tmpUtf8);
+                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "application_version").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(tmpUtf8->data), NewStringType::kNormal, static_cast<int>(tmpUtf8->length)).ToLocalChecked()).Check();
                     } else {
                         throw Exception(ExceptionCodeFormat, __LINE__, "App Version version"); // unsupported attribute version -> check docs -> update code
                     }
@@ -509,7 +535,7 @@ namespace validator {
             ptr = octStr + octStrLen;
         }
 
-        receiptObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "in_app").ToLocalChecked(), receiptsArray, None).Check();
+        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "in_app").ToLocalChecked(), receiptsArray).Check();
     }
     
     void Validator::New(const FunctionCallbackInfo<Value> & args) {
@@ -517,11 +543,10 @@ namespace validator {
         HandleScope handleScope(isolate);
         auto context = isolate->GetCurrentContext();
         if (args.IsConstructCall()) {
-            Validator * obj = nullptr;
             TRY
-            obj = new Validator();
+            Validator * validator = new Validator();
+            validator->Wrap(args.This());
             CATCH_RET(isolate)
-            obj->Wrap(args.This());
             args.GetReturnValue().Set(args.This());
         } else {
             auto constructor = args.Data().As<Object>()->GetInternalField(0).As<Function>();
@@ -620,7 +645,7 @@ namespace validator {
         if (value->IsString()) {
             String::Utf8Value str(isolate, value);
             if (str.length() > 0) {
-                validator->_GUID = Validator::fromApplesBase64<uint8_t>(*str);
+                validator->_GUID = fromBase64<uint8_t>(*str);
             }
         } else if (value->IsArrayBuffer()) {
             auto arrayBuffer = Local<ArrayBuffer>::Cast(value);
@@ -661,15 +686,39 @@ namespace validator {
         Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
         validator->_rootCertificate.clear();
         if (value->IsArrayBuffer()) {
-            auto arrayBuffer = Local<ArrayBuffer>::Cast(value);
+            const auto arrayBuffer = Local<ArrayBuffer>::Cast(value);
             const auto backingStore = arrayBuffer->GetBackingStore();
-            if (backingStore && backingStore->ByteLength() > 0) {
+            const size_t byteLength = backingStore ? backingStore->ByteLength() : 0;
+            if (byteLength > 0) {
                 std::vector<uint8_t> v;
-                v.resize(backingStore->ByteLength());
-                memcpy(v.data(), backingStore->Data(), backingStore->ByteLength());
+                v.resize(byteLength);
+                memcpy(v.data(), backingStore->Data(), byteLength);
                 validator->_rootCertificate = std::move(v);
             }
         }
+        CATCH_RET(isolate)
+    }
+
+    void Validator::InAppReceiptFields(Local<String> property, const PropertyCallbackInfo<Value> & info) {
+        Isolate * isolate = info.GetIsolate();
+        HandleScope handleScope(isolate);
+        TRY
+        Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
+        info.GetReturnValue().Set(Int32::New(isolate, validator->_inAppReceiptFields));
+        CATCH_RET(isolate)
+    }
+
+    void Validator::SetInAppReceiptFields(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> & info) {
+        Isolate * isolate = info.GetIsolate();
+        HandleScope handleScope(isolate);
+        auto context = isolate->GetCurrentContext();
+        TRY
+        Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
+        InAppReceiptField fields = InAppReceiptFieldAll;
+        if (value->IsNumber()) {
+            fields = static_cast<InAppReceiptField>(value->ToNumber(context).ToLocalChecked()->Value());
+        }
+        validator->_inAppReceiptFields = fields;
         CATCH_RET(isolate)
     }
 
@@ -684,18 +733,17 @@ namespace validator {
             if (args[0]->IsString()) {
                 String::Utf8Value str(isolate, args[0]);
                 if (str.length() > 0) {
-                    inReceipt = Validator::fromApplesBase64<uint8_t>(*str);
+                    inReceipt = fromBase64<uint8_t>(*str);
                 } else {
                     throw Exception(ExceptionCodeInput, __LINE__, "Input Base64 is empty");
                 }
             } else if (args[0]->IsArrayBuffer()) {
-                auto arrayBuffer = Local<ArrayBuffer>::Cast(args[0]);
+                const auto arrayBuffer = Local<ArrayBuffer>::Cast(args[0]);
                 const auto backingStore = arrayBuffer->GetBackingStore();
-                if (backingStore && backingStore->ByteLength() > 0) {
-                    std::vector<uint8_t> v;
-                    v.resize(backingStore->ByteLength());
-                    memcpy(v.data(), backingStore->Data(), backingStore->ByteLength());
-                    inReceipt = std::move(v);
+                const size_t byteLength = backingStore ? backingStore->ByteLength() : 0;
+                if (byteLength > 0) {
+                    inReceipt.resize(byteLength);
+                    memcpy(inReceipt.data(), backingStore->Data(), byteLength);
                 } else {
                     throw Exception(ExceptionCodeInput, __LINE__, "Input array buffer is empty");
                 }
@@ -734,6 +782,7 @@ namespace validator {
         ctorInstTpl->SetAccessor(String::NewFromUtf8(isolate, "bundleIdentifier").ToLocalChecked(), Validator::BundleIdentifier, Validator::SetBundleIdentifier, Local<Value>(), DEFAULT, DontDelete);
         ctorInstTpl->SetAccessor(String::NewFromUtf8(isolate, "GUID").ToLocalChecked(), Validator::GUID, Validator::SetGUID, Local<Value>(), DEFAULT, DontDelete);
         ctorInstTpl->SetAccessor(String::NewFromUtf8(isolate, "rootCertificate").ToLocalChecked(), Validator::RootCertificate, Validator::SetRootCertificate, Local<Value>(), DEFAULT, DontDelete);
+        ctorInstTpl->SetAccessor(String::NewFromUtf8(isolate, "inAppReceiptFields").ToLocalChecked(), Validator::InAppReceiptFields, Validator::SetInAppReceiptFields, Local<Value>(), DEFAULT, DontDelete);
         
         auto constructor = ctorTpl->GetFunction(context).ToLocalChecked();
         dataObject->SetInternalField(0, constructor);
@@ -753,6 +802,20 @@ static void ValidatorModuleInit(Local<Object> exports) {
     errorCodeObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "format").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::ExceptionCodeFormat), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
     errorCodeObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "validation").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::ExceptionCodeValidation), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
     exports->Set(context, String::NewFromUtf8(isolate, "ErrorCode").ToLocalChecked(), errorCodeObject).FromJust();
+    
+    auto inAppReceiptField = Object::New(isolate);
+    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "quantity").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldQuantity), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "web_order_line_item_id").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldWebOrderLineItemId), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "is_in_intro_offer_period").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldIsInIntroOfferPeriod), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "product_id").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldProductId), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "transaction_id").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldTransactionId), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "original_transaction_id").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldOriginalTransactionId), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "purchase_date").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldPurchaseDate), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "original_purchase_date").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldOriginalPurchaseDate), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "expires_date").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldExpiresDate), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "cancellation_date").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldCancellationDate), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "all").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldAll), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    exports->Set(context, String::NewFromUtf8(isolate, "InAppReceiptField").ToLocalChecked(), inAppReceiptField).FromJust();
     
     validator::Validator::Init(exports);
 }
