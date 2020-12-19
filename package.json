@@ -1,6 +1,6 @@
 {
   "name": "aiap-local-validator",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Apple's in-app purchase local, on-device, receipt validator",
   "author": "Oleh Kulykov <olehkulykov@gmail.com>",
   "license": "SEE LICENSE IN LICENSE",
@@ -29,7 +29,7 @@
   "files": [
     "binding.gyp",
     "index.js",
-    "src/validator.cpp",
+    "src",
     "test/tests.js"
   ]
 }
