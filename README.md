@@ -103,7 +103,7 @@ https://developer.apple.com/library/archive/releasenotes/General/ValidateAppStor
     "npm": ">=6.0.0"
   },
   "dependencies": {
-    "aiap-local-validator": "^0.0.4"
+    "aiap-local-validator": "^0.0.5"
   }
 }
 ```
