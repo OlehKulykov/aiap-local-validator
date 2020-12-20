@@ -98,6 +98,9 @@ Bit-mask value of the 'In App Receipt' fields.
 Default: bundled raw data of the 'Apple Inc Root Certificate' as ```ArrayBuffer```.
 Instead of bundled 'Apple Inc Root Certificate' provide and use your own.
 To reset to a default bundled certificate, provide undefined value.
+```
+https://www.apple.com/appleca/AppleIncRootCertificate.cer
+```
 
 ### <a name="class_validator_validate"></a>Validator.validate(receipt) ⇔ Object 
 Validates the provided receipt as a Base64 String or as ArrayBuffer of raw data and returns the decrypted App Receipt and array of In-App Purchase Receipt's. 
