@@ -87,7 +87,8 @@ var deviceIdentifier = UIDevice.current.identifierForVendor?.uuid
 let rawDeviceIdentifierPointer = withUnsafePointer(to: &deviceIdentifier) {
     return UnsafeRawPointer($0)
 }
-let GUID = NSData(bytes: rawDeviceIdentifierPointer, length: 16)
+let rawGUID = NSData(bytes: rawDeviceIdentifierPointer, length: 16)
+let base64GUID = rawGUID.base64EncodedString()
 ```
 
 ### <a name="class_validator_inappreceiptfields"></a>Validator.inAppReceiptFields ⇔ Number
@@ -161,7 +162,7 @@ https://developer.apple.com/library/archive/releasenotes/General/ValidateAppStor
 
 ### Experimantal 'In-App Purchase Receipt' fields
 If the field of the 'In-App Purchase Receipt' was selected for output and has a 'RFC 3339 date' string format.
-Then the extra field with '_ms' prefix will be added with parsed date value in milliseconds.
+Then the extra field with '_ms' prefix will be added with parsed date value in milliseconds(similar to an Apple's online validation).
 
 
 ### License
