@@ -96,8 +96,8 @@ Bit-mask value of the 'In App Receipt' fields.
 
 ### <a name="class_validator_root_certificate"></a>Validator.rootCertificate ⇔ ArrayBuffer
 Default: bundled raw data of the 'Apple Inc Root Certificate' as ```ArrayBuffer```.
-Instead of bundled 'Apple Inc Root Certificate' provide and use your own.
-To reset to a default bundled certificate, provide undefined value.
+Instead of using bundled 'Apple Inc Root Certificate' you can provide and use your own updated.
+To reset to a default bundled certificate, provide ```undefined``` value.
 ```
 https://www.apple.com/appleca/AppleIncRootCertificate.cer
 ```
@@ -134,7 +134,7 @@ const { Validator, ErrorCode, InAppReceiptField } = require('aiap-local-validato
 try {
     const validator = new Validator();
     
-    // Optinaly select fields of the 'In App Receipt'.
+    // Optinaly select fields of the 'In App Receipt', otherwise all fields.
     validator.inAppReceiptFields = InAppReceiptField.expires_date | InAppReceiptField.product_id;
     
     // Optionaly, but recommended, validate the receipt with 'bundleIdentifier', 'version' and 'GUID'.
@@ -154,9 +154,14 @@ try {
 
 
 ### Supported fields
-All 'App Receipt' and 'In-App Purchase Receipt' fields which are described and have a valid 'ASN.1 Field Type' are supported.
+All fields of 'App Receipt' and 'In-App Purchase Receipt' which are described and have a valid 'ASN.1 Field Type' are supported.
 
 https://developer.apple.com/library/archive/releasenotes/General/ValidateAppStoreReceipt/Chapters/ReceiptFields.html
+
+
+### Experimantal 'In-App Purchase Receipt' fields
+If the field of the 'In-App Purchase Receipt' was selected for output and has a 'RFC 3339 date' string format.
+Then the extra field with '_ms' prefix will be added with parsed date value in milliseconds.
 
 
 ### License
