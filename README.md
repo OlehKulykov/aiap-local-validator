@@ -62,12 +62,12 @@ Exported validator.
 #### <a name="class_validator_new"></a>new Validator()
 Constructs new validator.
 
-### <a name="class_validator_version"></a>Validator.version  ⇔ String|Undefined
+### <a name="class_validator_version"></a>Validator.version ⇔ String|Undefined
 Default: ```undefined```.
 Provide the application's version to check with the receipt.
 If this value exists and the receipt contains different version ⇒ Exception(ErrorCode.validation).
 
-### <a name="class_validator_bundle_identifier"></a>Validator.bundleIdentifier  ⇔ String|Undefined
+### <a name="class_validator_bundle_identifier"></a>Validator.bundleIdentifier ⇔ String|Undefined
 Default: ```undefined```.
 Provide the application's bundle identifier to check with the receipt.
 If this value exists and the receipt contains different bundle identifier ⇒ Exception(ErrorCode.validation).
@@ -76,6 +76,13 @@ If this value exists and the receipt contains different bundle identifier ⇒ Ex
 Default: ```undefined```.
 Provide the application's GUID as a Base64 string or as ArrayBuffer of raw GUID data to check with the receipt.
 If this value exists and the receipt contains different GUID ⇒ Exception(ErrorCode.validation).
+```swift
+var deviceIdentifier = UIDevice.current.identifierForVendor?.uuid
+let rawDeviceIdentifierPointer = withUnsafePointer(to: &deviceIdentifier) {
+    return UnsafeRawPointer($0)
+}
+let GUID = NSData(bytes: rawDeviceIdentifierPointer, length: 16)
+```
 
 ### <a name="class_validator_inappreceiptfields"></a>Validator.inAppReceiptFields ⇔ Number
 Default: ```InAppReceiptField.all```.
