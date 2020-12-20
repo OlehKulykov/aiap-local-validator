@@ -10,6 +10,7 @@ function appendBuffer(buffer1, buffer2) {
     return tmp.buffer;
 };
 
+console.log('Downloading Apple Inc Root Certificate ...');
 const options = new URL('https://www.apple.com/appleca/AppleIncRootCertificate.cer');
 const request = https.request(options, resp => {
     let data = undefined;
@@ -20,11 +21,11 @@ const request = https.request(options, resp => {
         if (!data) throw '';
         const validator = new Validator();
         const cert = new Uint8Array(validator.rootCertificate);
-        if (data.byteLength !== cert.byteLength) throw '';
+        if (data.byteLength !== cert.byteLength) throw 'Module requires to update bundled Apple Inc Root Certificate';
         for (let i = 0, n = data.byteLength; i < n; i++) {
-            if (data[i] !== cert[i]) throw '';
+            if (data[i] !== cert[i]) throw 'Module requires to update bundled Apple Inc Root Certificate';
         }
-        console.log('Root certificate: ok');
+        console.log('Apple Inc Root Certificate: ok');
     });
 });
 request.on('error', error => {

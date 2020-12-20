@@ -1,5 +1,10 @@
-## Apple's in-app purchases local, on-device, receipt validator
+## Apple's in-app purchases local, on-device, receipt validator module for node.js.
 [![Build Status](https://travis-ci.org/OlehKulykov/aiap-local-validator.svg?branch=master)](https://travis-ci.org/OlehKulykov/aiap-local-validator)
+-----------
+
+This module implements in-app purchases local receipt validation.
+The module has no external dependencies and implemented as a native module. 
+For more info check: https://developer.apple.com/library/archive/releasenotes/General/ValidateAppStoreReceipt/Chapters/ValidateLocally.html
 
 ### Node.js native module API reference.
 -----------
@@ -43,10 +48,10 @@ The required amount of memory can't be alocated or can't instantiate some object
 The provided argument has unsupported type or incorrect value.
 
 #### <a name="enum_errorcode_format"></a>ErrorCode.format ⇒ Number
-The receipt has unsupported type of the data or property version. Need update the code and use latest version.
+The receipt has unsupported type of the data or property version. Need update the code, report npm module and update project to use the latest version.
 
 #### <a name="enum_errorcode_validation"></a>ErrorCode.validation ⇒ Number
-The provided input arguments and the receipt can't be evaluated. 
+Any validation error. 
 
 ### <a name="enum_inappreceiptfield"></a>InAppReceiptField
 Represents bit-mask values of the 'InAppReceiptField' fields. The name of the emum values are same as in ouput.
@@ -58,29 +63,34 @@ Exported validator.
 Constructs new validator.
 
 ### <a name="class_validator_version"></a>Validator.version  ⇔ String|Undefined
-Provide the application's version to check with the provided receipt.
+Default: ```undefined```.
+Provide the application's version to check with the receipt.
 If this value exists and the receipt contains different version ⇒ Exception(ErrorCode.validation).
 
 ### <a name="class_validator_bundle_identifier"></a>Validator.bundleIdentifier  ⇔ String|Undefined
-Provide the application's bundle identifier to check with the provided receipt.
+Default: ```undefined```.
+Provide the application's bundle identifier to check with the receipt.
 If this value exists and the receipt contains different bundle identifier ⇒ Exception(ErrorCode.validation).
 
 ### <a name="class_validator_guid"></a>Validator.GUID ⇒ ArrayBuffer, ⇐ ArrayBuffer|String
-Provide the application's GUID to check with the provided receipt.
+Default: ```undefined```.
+Provide the application's GUID as a Base64 string or as ArrayBuffer of raw GUID data to check with the receipt.
 If this value exists and the receipt contains different GUID ⇒ Exception(ErrorCode.validation).
 
-### <a name="class_validator_inappreceiptfields"></a>Validator.inAppReceiptFields ⇔ Number 
-Bit-mask value of the 'In App Receipt' fields. By default, all fields are present.
+### <a name="class_validator_inappreceiptfields"></a>Validator.inAppReceiptFields ⇔ Number
+Default: ```InAppReceiptField.all```.
+Bit-mask value of the 'In App Receipt' fields.
 
 ### <a name="class_validator_root_certificate"></a>Validator.rootCertificate ⇔ ArrayBuffer
+Default: bundled raw data of the 'Apple Inc Root Certificate' as ```ArrayBuffer```.
 Instead of bundled 'Apple Inc Root Certificate' provide and use your own.
 To reset to a default bundled certificate, provide undefined value.
 
 ### <a name="class_validator_validate"></a>Validator.validate(receipt) ⇔ Object 
-Validates the provided receipt as a Base64 String or as ArrayBuffer and returns the decrypted App Receipt and array of In-App Purchase Receipt's 
+Validates the provided receipt as a Base64 String or as ArrayBuffer of raw data and returns the decrypted App Receipt and array of In-App Purchase Receipt's. 
 If the 'version' and/or 'bundleIdentifier' and/or 'GUID' was provided and the decrypted receipt contains different values ⇒ Exception(ErrorCode.validation). 
 
-https://developer.apple.com/library/archive/releasenotes/General/ValidateAppStoreReceipt/Chapters/ReceiptFields.html#//apple_ref/doc/uid/TP40010573-CH106-SW1
+https://developer.apple.com/library/archive/releasenotes/General/ValidateAppStoreReceipt/Chapters/ReceiptFields.html
 
 
 ### Installation via npm package.json
@@ -93,7 +103,7 @@ https://developer.apple.com/library/archive/releasenotes/General/ValidateAppStor
     "npm": ">=6.0.0"
   },
   "dependencies": {
-    "aiap-local-validator": "^0.0.3"
+    "aiap-local-validator": "^0.0.4"
   }
 }
 ```
@@ -107,26 +117,30 @@ const { Validator, ErrorCode, InAppReceiptField } = require('aiap-local-validato
 
 try {
     const validator = new Validator();
-    validator.bundleIdentifier = 'my.com';
-    validator.version = '123';
-    validator.GUID = 'Base64 GUID' | ArrayBuffer;
+    
+    // Optinaly select fields of the 'In App Receipt'.
     validator.inAppReceiptFields = InAppReceiptField.expires_date | InAppReceiptField.product_id;
     
-    const receipt = validator.validate('Base64 receipt' | ArrayBuffer);
-    // User 'receipt'. For more info, see 'Supported fields' section. 
+    // Optionaly, but recommended, validate the receipt with 'bundleIdentifier', 'version' and 'GUID'.
+    validator.bundleIdentifier = 'my.cool.app';
+    validator.version = '123';
+    validator.GUID = '<Base64 GUID>' | ArrayBuffer;
+    
+    const receipt = validator.validate('<Base64 receipt>' | ArrayBuffer); 
 } catch (error) {
     switch (error.code) {
-        case ErrorCode.input:
-            break;
+        case ErrorCode.input: break;
+        case ErrorCode.validation: break;
+        ...
     }
 }
 ```
 
 
 ### Supported fields
-All 'App Receipt' and 'In-App Purchase Receipt' fields which are described and have a valid 'ASN.1 Field Type' are present.
+All 'App Receipt' and 'In-App Purchase Receipt' fields which are described and have a valid 'ASN.1 Field Type' are supported.
 
-https://developer.apple.com/library/archive/releasenotes/General/ValidateAppStoreReceipt/Chapters/ReceiptFields.html#//apple_ref/doc/uid/TP40010573-CH106-SW1
+https://developer.apple.com/library/archive/releasenotes/General/ValidateAppStoreReceipt/Chapters/ReceiptFields.html
 
 
 ### License

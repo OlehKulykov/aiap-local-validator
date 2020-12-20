@@ -4,12 +4,10 @@
 #if defined(__cplusplus)
 extern "C" unsigned char FILE__appleincrootcertificate_cer[FILE__appleincrootcertificate_cer_SIZE];
 extern "C" unsigned char * FILE__appleincrootcertificate_cer_PTR;
-extern "C" bool FILE__appleincrootcertificate_cer_write_to_path(const char *);
 #else
 #include <stdbool.h>
 extern unsigned char FILE__appleincrootcertificate_cer[FILE__appleincrootcertificate_cer_SIZE];
 extern unsigned char * FILE__appleincrootcertificate_cer_PTR;
-extern bool FILE__appleincrootcertificate_cer_write_to_path(const char *);
 #endif
 #else
 unsigned char FILE__appleincrootcertificate_cer[FILE__appleincrootcertificate_cer_SIZE]={
@@ -90,14 +88,5 @@ unsigned char FILE__appleincrootcertificate_cer[FILE__appleincrootcertificate_ce
 0x42,0x24,0x12,0x2a,0xc7,0x0f,0x1d,0xb6,0x4d,0x9c,0x5e,0x63,0xc8,0x4b,0x80,0x17,
 0x50,0xaa,0x8a,0xd5,0xda,0xe4,0xfc,0xd0,0x09,0x07,0x37,0xb0,0x75,0x75,0x21};
 unsigned char * FILE__appleincrootcertificate_cer_PTR=FILE__appleincrootcertificate_cer;
-bool FILE__appleincrootcertificate_cer_write_to_path(const char * path) {
-    FILE * f = fopen(path, "w+b");
-    if (f) {
-        const unsigned int w = (unsigned int)fwrite(FILE__appleincrootcertificate_cer_PTR, 1, FILE__appleincrootcertificate_cer_SIZE, f);
-        fclose(f);
-        return w == FILE__appleincrootcertificate_cer_SIZE;
-    }
-    return false;
-}
 #endif
 

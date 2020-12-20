@@ -94,9 +94,9 @@ namespace validator {
     
     template<>
     inline Local<Value> exceptionToError(Isolate * isolate, const Exception & exception) {
-        Local<Context> context = isolate->GetCurrentContext();
+        auto context = isolate->GetCurrentContext();
         auto error = v8::Exception::Error(String::NewFromUtf8(isolate, exception.what() ?: "unknown").ToLocalChecked());
-        Local<Object> errorObject = error->ToObject(context).ToLocalChecked();
+        auto errorObject = error->ToObject(context).ToLocalChecked();
         errorObject->Set(context, String::NewFromUtf8(isolate, "lineNumber").ToLocalChecked(), Integer::New(isolate, exception.line())).Check();
         errorObject->Set(context, String::NewFromUtf8(isolate, "code").ToLocalChecked(), Integer::New(isolate, exception.code())).Check();
         return errorObject;
@@ -228,11 +228,11 @@ namespace validator {
             const uint8_t * _bundleIdentifier = nullptr;
             const uint8_t * _opaqueValueV2 = nullptr;
             const uint8_t * _SHA1Hash = nullptr;
-            long _opaqueValueSizeV2 = 0;
+            long _opaqueValueV2Size = 0;
             long _SHA1HashSize = 0;
             long _bundleIdentifierSize = 0;
         } _asn1ReceiptFields;
-        InAppReceiptField _inAppReceiptFields = InAppReceiptFieldAll;
+        int _inAppReceiptFields = InAppReceiptFieldAll;
         
         std::unique_ptr<BIO, BIODeleter> receiptPayload(std::vector<uint8_t> && receipts);
         void validateInAppReceiptPayload(const unsigned char * payload, const size_t payloadLen, Isolate * isolate, Local<Object> receiptObject);
@@ -469,7 +469,7 @@ namespace validator {
                 case 4: // Opaque Value
                     if (attrVersion != 2) throw Exception(ExceptionCodeFormat, __LINE__, "Opaque Value version"); // unsupported attribute version -> check docs -> update code
                     _asn1ReceiptFields._opaqueValueV2 = ptr;
-                    _asn1ReceiptFields._opaqueValueSizeV2 = len;
+                    _asn1ReceiptFields._opaqueValueV2Size = len;
                     guidFields |= GUIDValidationFieldOpaqueValue;
                     break;
                     
@@ -494,7 +494,7 @@ namespace validator {
                 uint8_t digest[20] = { 0 };
                 EVP_DigestInit_ex(evp_ctx, EVP_sha1(), nullptr);
                 EVP_DigestUpdate(evp_ctx, _GUID.data(), _GUID.size()); // 1
-                EVP_DigestUpdate(evp_ctx, _asn1ReceiptFields._opaqueValueV2, _asn1ReceiptFields._opaqueValueSizeV2); // 2
+                EVP_DigestUpdate(evp_ctx, _asn1ReceiptFields._opaqueValueV2, _asn1ReceiptFields._opaqueValueV2Size); // 2
                 EVP_DigestUpdate(evp_ctx, _asn1ReceiptFields._bundleIdentifier, _asn1ReceiptFields._bundleIdentifierSize); // 3
                 EVP_DigestFinal_ex(evp_ctx, digest, nullptr);
                 EVP_MD_CTX_destroy(evp_ctx);
@@ -714,9 +714,9 @@ namespace validator {
         auto context = isolate->GetCurrentContext();
         TRY
         Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
-        InAppReceiptField fields = InAppReceiptFieldAll;
+        int fields = InAppReceiptFieldAll;
         if (value->IsNumber()) {
-            fields = static_cast<InAppReceiptField>(value->ToNumber(context).ToLocalChecked()->Value());
+            fields = static_cast<int>(value->ToNumber(context).ToLocalChecked()->Value());
         }
         validator->_inAppReceiptFields = fields;
         CATCH_RET(isolate)
@@ -735,7 +735,7 @@ namespace validator {
                 if (str.length() > 0) {
                     inReceipt = fromBase64<uint8_t>(*str);
                 } else {
-                    throw Exception(ExceptionCodeInput, __LINE__, "Input Base64 is empty");
+                    throw Exception(ExceptionCodeInput, __LINE__, "Receipt is empty");
                 }
             } else if (args[0]->IsArrayBuffer()) {
                 const auto arrayBuffer = Local<ArrayBuffer>::Cast(args[0]);
@@ -745,7 +745,7 @@ namespace validator {
                     inReceipt.resize(byteLength);
                     memcpy(inReceipt.data(), backingStore->Data(), byteLength);
                 } else {
-                    throw Exception(ExceptionCodeInput, __LINE__, "Input array buffer is empty");
+                    throw Exception(ExceptionCodeInput, __LINE__, "Receipt is empty");
                 }
             }
         }
