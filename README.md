@@ -1,4 +1,4 @@
-﻿## Apple's in-app purchases local, on-device, receipt validator module for node.js.
+## Apple's in-app purchases local, on-device, receipt validator module for node.js.
 [![Build Status](https://travis-ci.org/OlehKulykov/aiap-local-validator.svg?branch=master)](https://travis-ci.org/OlehKulykov/aiap-local-validator)
 -----------
 
@@ -66,11 +66,17 @@ Constructs new validator.
 Default: ```undefined```.
 Provide the application's version to check with the receipt.
 If this value exists and the receipt contains different version ⇒ Exception(ErrorCode.validation).
+```swift
+let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+```
 
 ### <a name="class_validator_bundle_identifier"></a>Validator.bundleIdentifier ⇔ String|Undefined
 Default: ```undefined```.
 Provide the application's bundle identifier to check with the receipt.
 If this value exists and the receipt contains different bundle identifier ⇒ Exception(ErrorCode.validation).
+```swift
+let bundleIdentifier = Bundle.main.bundleIdentifier
+```
 
 ### <a name="class_validator_guid"></a>Validator.GUID ⇒ ArrayBuffer, ⇐ ArrayBuffer|String
 Default: ```undefined```.
