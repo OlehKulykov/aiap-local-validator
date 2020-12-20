@@ -122,9 +122,9 @@ try {
     validator.inAppReceiptFields = InAppReceiptField.expires_date | InAppReceiptField.product_id;
     
     // Optionaly, but recommended, validate the receipt with 'bundleIdentifier', 'version' and 'GUID'.
-    validator.bundleIdentifier = 'my.cool.app';
-    validator.version = '123';
-    validator.GUID = '<Base64 GUID>' | ArrayBuffer;
+    validator.bundleIdentifier = 'my.cool.app'; // If validation was failed, the receipt was created by another app -> invalid.
+    validator.version = '123'; // If validation was failed, the receipt was created by another version of the app -> invalid.
+    validator.GUID = '<Base64 GUID>' | ArrayBuffer; // If validation was failed, the receipt was created on another device -> invalid.
     
     const receipt = validator.validate('<Base64 receipt>' | ArrayBuffer); 
 } catch (error) {
