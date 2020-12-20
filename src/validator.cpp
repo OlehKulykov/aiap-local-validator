@@ -127,6 +127,8 @@ namespace validator {
         GUIDValidationFieldBundleId     = 1 << 0,
         GUIDValidationFieldOpaqueValue  = 1 << 1,
         GUIDValidationFieldSHA1         = 1 << 2,
+
+        // Strict 'all'
         GUIDValidationFieldAll          = (GUIDValidationFieldBundleId | GUIDValidationFieldOpaqueValue | GUIDValidationFieldSHA1)
     };
 
@@ -141,7 +143,9 @@ namespace validator {
         InAppReceiptFieldOriginalPurchaseDate   = 1 << 7,
         InAppReceiptFieldExpiresDate            = 1 << 8,
         InAppReceiptFieldCancellationDate       = 1 << 9,
-        InAppReceiptFieldAll                    = 0xFFFF // even more
+        
+        // Even more 'all'
+        InAppReceiptFieldAll                    = 0xFFFF
     };
     
     struct BIODeleter final {

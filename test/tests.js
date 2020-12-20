@@ -25,7 +25,7 @@ const request = https.request(options, resp => {
         for (let i = 0, n = data.byteLength; i < n; i++) {
             if (data[i] !== cert[i]) throw 'Module requires to update bundled Apple Inc Root Certificate';
         }
-        console.log('Apple Inc Root Certificate: ok');
+        console.log('Apple Inc Root Certificate: ok, ', Date());
     });
 });
 request.on('error', error => {
@@ -77,3 +77,17 @@ try {
     }
 }
 if (!passed) throw '';
+
+
+// Remote testing
+// const http = require("http");
+// const requestLogs = [];
+// const server = http.createServer((req, res) => {
+//     if (req.url === '/test') {
+//         //TODO: test here
+//     }
+//     requestLogs.push({ url: req.url, date: new Date() });
+//     res.end(JSON.stringify(requestLogs));
+// });
+// server.listen(3000);
+// console.log("Server listening to port 3000. Press Ctrl+C to stop it.");
