@@ -43,6 +43,9 @@
 #include <openssl/evp.h>
 #include <openssl/asn1.h>
 
+// https://github.com/HowardHinnant/date/blob/master/include/date/date.h
+#include "date.h"
+
 #include "file__appleincrootcertificate_cer.h"
 
 namespace appleBase64 {
@@ -218,6 +221,16 @@ namespace validator {
         return res;
     }
 
+    long long millisecondsFromRFC3339DateString(const char * dateString) {
+        using namespace date;
+        
+        if (!dateString) return 0;
+        std::istringstream instream(dateString);
+        sys_seconds seconds;
+        instream >> parse("%4Y-%2m-%2dT%2H:%2M:%2S%Z", seconds);
+        return std::chrono::duration_cast<std::chrono::milliseconds>(seconds.time_since_epoch()).count();
+    }
+
     class Validator final: public node::ObjectWrap {
     private:
         std::string _version;
@@ -371,6 +384,7 @@ namespace validator {
                         std::unique_ptr<ASN1_IA5STRING, ASN1Ia5StringDeleter> ia5String(d2i_ASN1_IA5STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Ia5StringDeleter());
                         if (!ia5String) throw Exception(ExceptionCodeFormat, __LINE__, "Purchase Date");
                         receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "purchase_date").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(ia5String->data), NewStringType::kNormal, static_cast<int>(ia5String->length)).ToLocalChecked()).Check();
+                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "purchase_date_ms").ToLocalChecked(), Number::New(isolate, millisecondsFromRFC3339DateString(reinterpret_cast<const char *>(ia5String->data)))).Check();
                     }
                     break;
 
@@ -379,6 +393,7 @@ namespace validator {
                         std::unique_ptr<ASN1_IA5STRING, ASN1Ia5StringDeleter> ia5String(d2i_ASN1_IA5STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Ia5StringDeleter());
                         if (!ia5String) throw Exception(ExceptionCodeFormat, __LINE__, "Original Purchase Date");
                         receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "original_purchase_date").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(ia5String->data), NewStringType::kNormal, static_cast<int>(ia5String->length)).ToLocalChecked()).Check();
+                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "original_purchase_date_ms").ToLocalChecked(), Number::New(isolate, millisecondsFromRFC3339DateString(reinterpret_cast<const char *>(ia5String->data)))).Check();
                     }
                     break;
 
@@ -387,6 +402,7 @@ namespace validator {
                         std::unique_ptr<ASN1_IA5STRING, ASN1Ia5StringDeleter> ia5String(d2i_ASN1_IA5STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Ia5StringDeleter());
                         if (!ia5String) throw Exception(ExceptionCodeFormat, __LINE__, "Subscription Expiration Date");
                         receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "expires_date").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(ia5String->data), NewStringType::kNormal, static_cast<int>(ia5String->length)).ToLocalChecked()).Check();
+                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "expires_date_ms").ToLocalChecked(), Number::New(isolate, millisecondsFromRFC3339DateString(reinterpret_cast<const char *>(ia5String->data)))).Check();
                     }
                     break;
 
@@ -395,6 +411,7 @@ namespace validator {
                         std::unique_ptr<ASN1_IA5STRING, ASN1Ia5StringDeleter> ia5String(d2i_ASN1_IA5STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Ia5StringDeleter());
                         if (!ia5String) throw Exception(ExceptionCodeFormat, __LINE__, "Cancellation Date");
                         receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "cancellation_date").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(ia5String->data), NewStringType::kNormal, static_cast<int>(ia5String->length)).ToLocalChecked()).Check();
+                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "cancellation_date_ms").ToLocalChecked(), Number::New(isolate, millisecondsFromRFC3339DateString(reinterpret_cast<const char *>(ia5String->data)))).Check();
                     }
                     break;
                     

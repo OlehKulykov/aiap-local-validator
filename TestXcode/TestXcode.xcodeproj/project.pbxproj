@@ -8,8 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		243009EA257E5117009CFB39 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 243009E9257E5117009CFB39 /* main.cpp */; };
-		243009F2257E5125009CFB39 /* validator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 243009F1257E5125009CFB39 /* validator.cpp */; };
 		243009FA257E5D77009CFB39 /* libcrypto.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 243009F9257E5D77009CFB39 /* libcrypto.a */; };
+		2452708A258F8BFC008F7244 /* validator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 243009F1257E5125009CFB39 /* validator.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -29,6 +29,7 @@
 		243009E9257E5117009CFB39 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		243009F1257E5125009CFB39 /* validator.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = validator.cpp; path = ../../src/validator.cpp; sourceTree = "<group>"; };
 		243009F9257E5D77009CFB39 /* libcrypto.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcrypto.a; path = ../../../../../opt/local/lib/libcrypto.a; sourceTree = "<group>"; };
+		24527085258F8372008F7244 /* date.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = date.h; path = ../../src/date.h; sourceTree = "<group>"; };
 		2481006125804B32003E73CF /* apple_base64.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = apple_base64.h; path = ../../src/apple_base64.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -64,6 +65,7 @@
 		243009E8257E5117009CFB39 /* TestXcode */ = {
 			isa = PBXGroup;
 			children = (
+				24527085258F8372008F7244 /* date.h */,
 				2481006125804B32003E73CF /* apple_base64.h */,
 				243009F1257E5125009CFB39 /* validator.cpp */,
 				243009E9257E5117009CFB39 /* main.cpp */,
@@ -127,7 +129,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				243009F2257E5125009CFB39 /* validator.cpp in Sources */,
+				2452708A258F8BFC008F7244 /* validator.cpp in Sources */,
 				243009EA257E5117009CFB39 /* main.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
