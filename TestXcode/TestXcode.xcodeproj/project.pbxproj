@@ -10,6 +10,10 @@
 		243009EA257E5117009CFB39 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 243009E9257E5117009CFB39 /* main.cpp */; };
 		243009FA257E5D77009CFB39 /* libcrypto.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 243009F9257E5D77009CFB39 /* libcrypto.a */; };
 		2452708A258F8BFC008F7244 /* validator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 243009F1257E5125009CFB39 /* validator.cpp */; };
+		24B1976D258FF4C70066D0E6 /* validator_date.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 24B1976C258FF4C70066D0E6 /* validator_date.cpp */; };
+		24B19775258FF81E0066D0E6 /* validator_base64.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 24B19773258FF81E0066D0E6 /* validator_base64.cpp */; };
+		24B1977B258FFDCF0066D0E6 /* validator_files.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 24B1977A258FFDCF0066D0E6 /* validator_files.cpp */; };
+		24B19783259012190066D0E6 /* validator_exception.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 24B19782259012190066D0E6 /* validator_exception.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -31,6 +35,14 @@
 		243009F9257E5D77009CFB39 /* libcrypto.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcrypto.a; path = ../../../../../opt/local/lib/libcrypto.a; sourceTree = "<group>"; };
 		24527085258F8372008F7244 /* date.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = date.h; path = ../../src/date.h; sourceTree = "<group>"; };
 		2481006125804B32003E73CF /* apple_base64.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = apple_base64.h; path = ../../src/apple_base64.h; sourceTree = "<group>"; };
+		24B19767258FF0900066D0E6 /* validator_exception.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = validator_exception.hpp; path = ../../src/validator_exception.hpp; sourceTree = "<group>"; };
+		24B1976B258FF4C70066D0E6 /* validator_date.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = validator_date.hpp; path = ../../src/validator_date.hpp; sourceTree = "<group>"; };
+		24B1976C258FF4C70066D0E6 /* validator_date.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = validator_date.cpp; path = ../../src/validator_date.cpp; sourceTree = "<group>"; };
+		24B19773258FF81E0066D0E6 /* validator_base64.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = validator_base64.cpp; path = ../../src/validator_base64.cpp; sourceTree = "<group>"; };
+		24B19774258FF81E0066D0E6 /* validator_base64.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = validator_base64.hpp; path = ../../src/validator_base64.hpp; sourceTree = "<group>"; };
+		24B19779258FFDCF0066D0E6 /* validator_files.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = validator_files.hpp; path = ../../src/validator_files.hpp; sourceTree = "<group>"; };
+		24B1977A258FFDCF0066D0E6 /* validator_files.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = validator_files.cpp; path = ../../src/validator_files.cpp; sourceTree = "<group>"; };
+		24B19782259012190066D0E6 /* validator_exception.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = validator_exception.cpp; path = ../../src/validator_exception.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -65,6 +77,14 @@
 		243009E8257E5117009CFB39 /* TestXcode */ = {
 			isa = PBXGroup;
 			children = (
+				24B1977A258FFDCF0066D0E6 /* validator_files.cpp */,
+				24B19779258FFDCF0066D0E6 /* validator_files.hpp */,
+				24B19773258FF81E0066D0E6 /* validator_base64.cpp */,
+				24B19774258FF81E0066D0E6 /* validator_base64.hpp */,
+				24B1976C258FF4C70066D0E6 /* validator_date.cpp */,
+				24B1976B258FF4C70066D0E6 /* validator_date.hpp */,
+				24B19767258FF0900066D0E6 /* validator_exception.hpp */,
+				24B19782259012190066D0E6 /* validator_exception.cpp */,
 				24527085258F8372008F7244 /* date.h */,
 				2481006125804B32003E73CF /* apple_base64.h */,
 				243009F1257E5125009CFB39 /* validator.cpp */,
@@ -131,6 +151,10 @@
 			files = (
 				2452708A258F8BFC008F7244 /* validator.cpp in Sources */,
 				243009EA257E5117009CFB39 /* main.cpp in Sources */,
+				24B19783259012190066D0E6 /* validator_exception.cpp in Sources */,
+				24B1976D258FF4C70066D0E6 /* validator_date.cpp in Sources */,
+				24B1977B258FFDCF0066D0E6 /* validator_files.cpp in Sources */,
+				24B19775258FF81E0066D0E6 /* validator_base64.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

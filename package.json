@@ -1,6 +1,6 @@
 {
   "name": "aiap-local-validator",
-  "version": "0.0.7",
+  "version": "1.0.0",
   "description": "Apple's in-app purchase local, on-device, receipt validator",
   "author": "Oleh Kulykov <olehkulykov@gmail.com>",
   "license": "SEE LICENSE IN LICENSE",

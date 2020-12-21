@@ -106,11 +106,11 @@ static const unsigned char pr2six[256] =
     64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
 };
 
-ssize_t Base64decode_len(const char *bufcoded)
+int64_t Base64decode_len(const char *bufcoded)
 {
-    ssize_t nbytesdecoded;
+    int64_t nbytesdecoded;
     const unsigned char *bufin;
-    ssize_t nprbytes;
+    int64_t nprbytes;
 
     bufin = (const unsigned char *) bufcoded;
     while (pr2six[*(bufin++)] <= 63);
@@ -121,12 +121,12 @@ ssize_t Base64decode_len(const char *bufcoded)
     return nbytesdecoded + 1;
 }
 
-ssize_t Base64decode(char *bufplain, const char *bufcoded)
+int64_t Base64decode(char *bufplain, const char *bufcoded)
 {
-    ssize_t nbytesdecoded;
+    int64_t nbytesdecoded;
     const unsigned char *bufin;
     unsigned char *bufout;
-    ssize_t nprbytes;
+    int64_t nprbytes;
 
     bufin = (const unsigned char *) bufcoded;
     while (pr2six[*(bufin++)] <= 63);
@@ -169,23 +169,23 @@ ssize_t Base64decode(char *bufplain, const char *bufcoded)
 static const char basis_64[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-ssize_t Base64encode_len(ssize_t len)
+int64_t Base64encode_len(int64_t len)
 {
     return ((len + 2) / 3 * 4) + 1;
 }
 
-ssize_t Base64encode(char *encoded, const char *string, ssize_t len)
+int64_t Base64encode(char *encoded, const char *string, int64_t len)
 {
-    ssize_t i;
+    int64_t i;
     char *p;
 
     p = encoded;
     for (i = 0; i < len - 2; i += 3) {
     *p++ = basis_64[(string[i] >> 2) & 0x3F];
     *p++ = basis_64[((string[i] & 0x3) << 4) |
-                    ((ssize_t) (string[i + 1] & 0xF0) >> 4)];
+                    ((int64_t) (string[i + 1] & 0xF0) >> 4)];
     *p++ = basis_64[((string[i + 1] & 0xF) << 2) |
-                    ((ssize_t) (string[i + 2] & 0xC0) >> 6)];
+                    ((int64_t) (string[i + 2] & 0xC0) >> 6)];
     *p++ = basis_64[string[i + 2] & 0x3F];
     }
     if (i < len) {
@@ -196,7 +196,7 @@ ssize_t Base64encode(char *encoded, const char *string, ssize_t len)
     }
     else {
         *p++ = basis_64[((string[i] & 0x3) << 4) |
-                        ((ssize_t) (string[i + 1] & 0xF0) >> 4)];
+                        ((int64_t) (string[i + 1] & 0xF0) >> 4)];
         *p++ = basis_64[((string[i + 1] & 0xF) << 2)];
     }
     *p++ = '=';

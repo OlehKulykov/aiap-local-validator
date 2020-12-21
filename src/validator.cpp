@@ -1,6 +1,3 @@
-//
-// By using this Software, you are accepting original [LZMA SDK] and MIT license below:
-//
 // The MIT License (MIT)
 //
 // Copyright (c) 2020 Oleh Kulykov <olehkulykov@gmail.com>
@@ -30,9 +27,6 @@
 #include <string>
 #include <sstream>
 #include <iostream>
-#include <fstream>
-#include <exception>
-#include <ctime>
 #include <node.h>
 #include <node_object_wrap.h>
 #include <openssl/pkcs7.h>
@@ -41,98 +35,43 @@
 #include <openssl/evp.h>
 #include <openssl/asn1.h>
 
-// https://github.com/HowardHinnant/date/blob/master/include/date/date.h
-#include "date.h"
-
-#include "file__appleincrootcertificate_cer.h"
-
-namespace appleBase64 {
-#include "apple_base64.h"
-
-} // appleBase64
+#include "validator_exception.hpp"
+#include "validator_date.hpp"
+#include "validator_base64.hpp"
+#include "validator_files.hpp"
 
 using namespace v8;
 
-namespace validator {
-
-    enum ExceptionCode {
-        ExceptionCodeInternal           = 1,
-        ExceptionCodeInput              = 2,
-        ExceptionCodeFormat             = 3,
-        ExceptionCodeValidation         = 4
-    };
-    
-    class Exception final: std::exception {
-    private:
-        char * _what = nullptr;
-        ExceptionCode _code;
-        int _line;
-        
-    public:
-        ExceptionCode code() const noexcept { return _code; }
-        int line() const noexcept { return _line; }
-        virtual const char * what() const noexcept { return _what; }
-        Exception(const ExceptionCode code = ExceptionCodeInternal, const int line = 0, const char * what = nullptr) noexcept;
-        ~Exception() noexcept {
-            if (_what) {
-                free(_what);
-            }
-        }
-    };
-
-    Exception::Exception(const ExceptionCode code, const int line, const char * what) noexcept : std::exception(),
-        _code(code),
-        _line(line) {
-            const size_t len = what ? strlen(what) : 0;
-            if (len && (_what = static_cast<char *>(malloc(len + 1)))) {
-                memcpy(_what, what, len);
-                _what[len] = 0;
-            }
-    }
-
-    template<typename T>
-    inline Local<Value> exceptionToError(Isolate * isolate, const T & exception);
-    
-    template<>
-    inline Local<Value> exceptionToError(Isolate * isolate, const Exception & exception) {
-        auto context = isolate->GetCurrentContext();
-        auto error = v8::Exception::Error(String::NewFromUtf8(isolate, exception.what() ?: "unknown").ToLocalChecked());
-        auto errorObject = error->ToObject(context).ToLocalChecked();
-        errorObject->Set(context, String::NewFromUtf8(isolate, "lineNumber").ToLocalChecked(), Integer::New(isolate, exception.line())).Check();
-        errorObject->Set(context, String::NewFromUtf8(isolate, "code").ToLocalChecked(), Integer::New(isolate, exception.code())).Check();
-        return errorObject;
-    }
-    
-    template<>
-    inline Local<Value> exceptionToError(Isolate * isolate, const std::exception & exception) {
-        return v8::Exception::Error(String::NewFromUtf8(isolate, exception.what() ?: "unknown").ToLocalChecked());
-    }
-
-} // validator
-
-#define TRY \
+#define VALIDATOR_TRY \
 try { \
 
 
-#define CATCH_RET(ISOLATE) \
+#define VALIDATOR_CATCH_RET(ISOLATE, CTX) \
 } catch (const validator::Exception & e) { \
-    ISOLATE->ThrowException(validator::exceptionToError(ISOLATE, e)); return; \
+    auto error = v8::Exception::Error(String::NewFromUtf8(ISOLATE, e.what() ?: "unknown").ToLocalChecked()); \
+    auto errorObject = error->ToObject(CTX).ToLocalChecked(); \
+    errorObject->Set(CTX, String::NewFromUtf8(ISOLATE, "lineNumber").ToLocalChecked(), Integer::New(ISOLATE, e.line())).Check(); \
+    errorObject->Set(CTX, String::NewFromUtf8(ISOLATE, "code").ToLocalChecked(), Integer::New(ISOLATE, e.code())).Check(); \
+    ISOLATE->ThrowException(errorObject); \
+    return; \
 } catch (const std::exception & e) { \
-    ISOLATE->ThrowException(validator::exceptionToError(ISOLATE, e)); return; \
+    ISOLATE->ThrowException(v8::Exception::Error(String::NewFromUtf8(ISOLATE, e.what() ?: "unknown").ToLocalChecked())); \
+    return; \
 } \
+
 
 namespace validator {
 
-    enum GUIDValidationField  {
+    enum GUIDValidationField: uint32_t {
         GUIDValidationFieldBundleId     = 1 << 0,
         GUIDValidationFieldOpaqueValue  = 1 << 1,
         GUIDValidationFieldSHA1         = 1 << 2,
-
-        // Strict 'all'
-        GUIDValidationFieldAll          = (GUIDValidationFieldBundleId | GUIDValidationFieldOpaqueValue | GUIDValidationFieldSHA1)
+        GUIDValidationFieldAll          = (GUIDValidationFieldBundleId |
+                                           GUIDValidationFieldOpaqueValue |
+                                           GUIDValidationFieldSHA1)
     };
 
-    enum InAppReceiptField  {
+    enum InAppReceiptField: uint32_t {
         InAppReceiptFieldQuantity               = 1 << 0,
         InAppReceiptFieldWebOrderLineItemId     = 1 << 1,
         InAppReceiptFieldIsInIntroOfferPeriod   = 1 << 2,
@@ -143,9 +82,16 @@ namespace validator {
         InAppReceiptFieldOriginalPurchaseDate   = 1 << 7,
         InAppReceiptFieldExpiresDate            = 1 << 8,
         InAppReceiptFieldCancellationDate       = 1 << 9,
-        
-        // Even more 'all'
-        InAppReceiptFieldAll                    = 0xFFFF
+        InAppReceiptFieldAll                    = (InAppReceiptFieldQuantity |
+                                                   InAppReceiptFieldWebOrderLineItemId |
+                                                   InAppReceiptFieldIsInIntroOfferPeriod |
+                                                   InAppReceiptFieldProductId |
+                                                   InAppReceiptFieldTransactionId |
+                                                   InAppReceiptFieldOriginalTransactionId |
+                                                   InAppReceiptFieldPurchaseDate |
+                                                   InAppReceiptFieldOriginalPurchaseDate |
+                                                   InAppReceiptFieldExpiresDate |
+                                                   InAppReceiptFieldCancellationDate)
     };
     
     struct BIODeleter final {
@@ -203,30 +149,15 @@ namespace validator {
             }
         };
     };
-    
-    template<typename T>
-    std::vector<T> fromBase64(const char * base64String) {
-        using namespace appleBase64;
-        
-        const auto theoreticalLength = Base64decode_len(base64String);
-        if (theoreticalLength > INT_MAX) throw Exception(ExceptionCodeInput, __LINE__, "Base64 is too big");
-        std::vector<T> res(theoreticalLength);
-        const auto decodedLen = Base64decode(reinterpret_cast<char *>(res.data()), base64String);
-        if (theoreticalLength != decodedLen) {
-            res.resize(decodedLen);
-        }
-        return res;
-    }
 
-    long long millisecondsFromRFC3339DateString(const char * dateString) {
-        using namespace date;
-        
-        if (!dateString) return 0;
-        std::istringstream instream(dateString);
-        sys_seconds seconds;
-        instream >> parse("%4Y-%2m-%2dT%2H:%2M:%2S%Z", seconds);
-        return std::chrono::duration_cast<std::chrono::milliseconds>(seconds.time_since_epoch()).count();
-    }
+    struct ASN1ValidationReceiptFields final {
+        const uint8_t * bundleIdentifier = nullptr;
+        const uint8_t * opaqueValueV2 = nullptr;
+        const uint8_t * SHA1Hash = nullptr;
+        long opaqueValueV2Size = 0;
+        long SHA1HashSize = 0;
+        long bundleIdentifierSize = 0;
+    };
 
     class Validator final: public node::ObjectWrap {
     private:
@@ -234,18 +165,10 @@ namespace validator {
         std::string _bundleIdentifier;
         std::vector<uint8_t> _GUID;
         std::vector<uint8_t> _rootCertificate;
-        struct {
-            const uint8_t * _bundleIdentifier = nullptr;
-            const uint8_t * _opaqueValueV2 = nullptr;
-            const uint8_t * _SHA1Hash = nullptr;
-            long _opaqueValueV2Size = 0;
-            long _SHA1HashSize = 0;
-            long _bundleIdentifierSize = 0;
-        } _asn1ReceiptFields;
-        int _inAppReceiptFields = InAppReceiptFieldAll;
+        uint32_t _inAppReceiptFields = InAppReceiptFieldAll;
         
         std::unique_ptr<BIO, BIODeleter> receiptPayload(std::vector<uint8_t> && receipts);
-        void validateInAppReceiptPayload(const unsigned char * payload, const size_t payloadLen, Isolate * isolate, Local<Object> receiptObject);
+        void parseInAppReceiptPayload(const unsigned char * payload, const size_t payloadLen, Isolate * isolate, Local<Object> receiptObject);
         
     public:
         void validate(std::vector<uint8_t> && inReceipts, Isolate * isolate, Local<Object> receiptObject);
@@ -272,10 +195,12 @@ namespace validator {
         if (!bP7) throw Exception(ExceptionCodeInternal, __LINE__, "PKCS7 container");
         
         BIO * bioPtr;
+        std::pair<uint8_t *, size_t> bundledCertificate;
         if (_rootCertificate.size()) {
             bioPtr = BIO_new_mem_buf(_rootCertificate.data(), static_cast<int>(_rootCertificate.size()));
         } else {
-            bioPtr = BIO_new_mem_buf(FILE__appleincrootcertificate_cer_PTR, static_cast<int>(FILE__appleincrootcertificate_cer_SIZE));
+            bundledCertificate = AppleIncRootCertificateFile();
+            bioPtr = BIO_new_mem_buf(bundledCertificate.first, static_cast<int>(bundledCertificate.second));
         }
         std::unique_ptr<BIO, BIODeleter> bx509(bioPtr, BIODeleter());
         if (!bx509) throw Exception(ExceptionCodeInternal, __LINE__, "X509 Apple Inc Root Certificate");
@@ -298,7 +223,7 @@ namespace validator {
         return bOut;
     }
     
-    void Validator::validateInAppReceiptPayload(const unsigned char * payload, const size_t payloadLen, Isolate * isolate, Local<Object> receiptObject) {
+    void Validator::parseInAppReceiptPayload(const unsigned char * payload, const size_t payloadLen, Isolate * isolate, Local<Object> receiptObject) {
         HandleScope handleScope(isolate);
         auto context = isolate->GetCurrentContext();
         const unsigned char * ptr = payload, * end = ptr + payloadLen;
@@ -456,6 +381,8 @@ namespace validator {
         validateVersion = _version.length() > 0,
         validateGUID = _GUID.size() > 0;
         
+        ASN1ValidationReceiptFields receiptFields;
+        
         while (ptr < end) {
             ASN1_get_object(&ptr, &len, &type, &cls, end - ptr);
             if (type != V_ASN1_SEQUENCE) throw Exception(ExceptionCodeFormat, __LINE__);
@@ -489,8 +416,8 @@ namespace validator {
                             }
                             if (str != _bundleIdentifier) throw Exception(ExceptionCodeValidation, __LINE__, "Bundle Identifier");
                         }
-                        _asn1ReceiptFields._bundleIdentifier = ptr;
-                        _asn1ReceiptFields._bundleIdentifierSize = len;
+                        receiptFields.bundleIdentifier = ptr;
+                        receiptFields.bundleIdentifierSize = len;
                         guidFields |= GUIDValidationFieldBundleId;
                         if (tmpUtf8->length >= 0) {
                             receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "bundle_id").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(tmpUtf8->data), NewStringType::kNormal, static_cast<int>(tmpUtf8->length)).ToLocalChecked()).Check();
@@ -502,16 +429,16 @@ namespace validator {
                     
                 case 4: // Opaque Value
                     if (attrVersion != 2) throw Exception(ExceptionCodeFormat, __LINE__, "Opaque Value version"); // unsupported attribute version -> check docs -> update code
-                    _asn1ReceiptFields._opaqueValueV2 = ptr;
-                    _asn1ReceiptFields._opaqueValueV2Size = len;
+                    receiptFields.opaqueValueV2 = ptr;
+                    receiptFields.opaqueValueV2Size = len;
                     guidFields |= GUIDValidationFieldOpaqueValue;
                     break;
                     
                 case 5: // SHA-1 Hash
                     if (attrVersion != 1) throw Exception(ExceptionCodeFormat, __LINE__, "SHA-1 Hash version"); // unsupported attribute version -> check docs -> update code
                     if (len != 20) throw Exception(ExceptionCodeFormat, __LINE__);
-                    _asn1ReceiptFields._SHA1Hash = ptr;
-                    _asn1ReceiptFields._SHA1HashSize = len;
+                    receiptFields.SHA1Hash = ptr;
+                    receiptFields.SHA1HashSize = len;
                     guidFields |= GUIDValidationFieldSHA1;
                     break;
                     
@@ -521,18 +448,18 @@ namespace validator {
             
             if (validateGUID && guidFields == GUIDValidationFieldAll) {
                 validateGUID = false;
-                if (!_asn1ReceiptFields._bundleIdentifier || !_asn1ReceiptFields._opaqueValueV2 || !_asn1ReceiptFields._SHA1Hash) throw Exception(ExceptionCodeValidation, __LINE__);
+                if (!receiptFields.bundleIdentifier || !receiptFields.opaqueValueV2 || !receiptFields.SHA1Hash) throw Exception(ExceptionCodeValidation, __LINE__);
                 EVP_MD_CTX * evp_ctx = EVP_MD_CTX_create();
                 if (!evp_ctx) throw Exception(ExceptionCodeInternal, __LINE__);
                 EVP_MD_CTX_init(evp_ctx);
                 uint8_t digest[20] = { 0 };
                 EVP_DigestInit_ex(evp_ctx, EVP_sha1(), nullptr);
                 EVP_DigestUpdate(evp_ctx, _GUID.data(), _GUID.size()); // 1
-                EVP_DigestUpdate(evp_ctx, _asn1ReceiptFields._opaqueValueV2, _asn1ReceiptFields._opaqueValueV2Size); // 2
-                EVP_DigestUpdate(evp_ctx, _asn1ReceiptFields._bundleIdentifier, _asn1ReceiptFields._bundleIdentifierSize); // 3
+                EVP_DigestUpdate(evp_ctx, receiptFields.opaqueValueV2, receiptFields.opaqueValueV2Size); // 2
+                EVP_DigestUpdate(evp_ctx, receiptFields.bundleIdentifier, receiptFields.bundleIdentifierSize); // 3
                 EVP_DigestFinal_ex(evp_ctx, digest, nullptr);
                 EVP_MD_CTX_destroy(evp_ctx);
-                if (memcmp(digest, _asn1ReceiptFields._SHA1Hash, 20) != 0) throw Exception(ExceptionCodeValidation, __LINE__, "SHA-1 Hash");
+                if (memcmp(digest, receiptFields.SHA1Hash, 20) != 0) throw Exception(ExceptionCodeValidation, __LINE__, "SHA-1 Hash");
             }
             
             switch (attrType) {
@@ -560,7 +487,7 @@ namespace validator {
                 case 17: // In-App Purchase Receipt, 'in_app'
                     if (attrVersion == 1) {
                         auto inAppReceiptObject = Object::New(isolate);
-                        validateInAppReceiptPayload(ptr, len, isolate, inAppReceiptObject);
+                        parseInAppReceiptPayload(ptr, len, isolate, inAppReceiptObject);
                         receiptsArray->Set(context, receiptsArrayIndex++, inAppReceiptObject).Check();
                     } else {
                         throw Exception(ExceptionCodeFormat, __LINE__, "In-App Purchase Receipt version"); // unsupported attribute version -> check docs -> update code
@@ -582,10 +509,10 @@ namespace validator {
         HandleScope handleScope(isolate);
         auto context = isolate->GetCurrentContext();
         if (args.IsConstructCall()) {
-            TRY
+            VALIDATOR_TRY
             Validator * validator = new Validator();
             validator->Wrap(args.This());
-            CATCH_RET(isolate)
+            VALIDATOR_CATCH_RET(isolate, context)
             args.GetReturnValue().Set(args.This());
         } else {
             auto constructor = args.Data().As<Object>()->GetInternalField(0).As<Function>();
@@ -606,20 +533,22 @@ namespace validator {
     void Validator::Version(Local<String> property, const PropertyCallbackInfo<Value> & info) {
         Isolate * isolate = info.GetIsolate();
         HandleScope handleScope(isolate);
-        TRY
+        auto context = isolate->GetCurrentContext();
+        VALIDATOR_TRY
         Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
         if (validator->_version.length() > 0) {
             info.GetReturnValue().Set(String::NewFromUtf8(isolate, validator->_version.c_str()).ToLocalChecked());
         } else {
             info.GetReturnValue().SetUndefined();
         }
-        CATCH_RET(isolate)
+        VALIDATOR_CATCH_RET(isolate, context)
     }
 
     void Validator::SetVersion(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> & info) {
         Isolate * isolate = info.GetIsolate();
         HandleScope handleScope(isolate);
-        TRY
+        auto context = isolate->GetCurrentContext();
+        VALIDATOR_TRY
         Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
         validator->_version.clear();
         if (value->IsString()) {
@@ -628,26 +557,28 @@ namespace validator {
                 validator->_version = *str;
             }
         }
-        CATCH_RET(isolate)
+        VALIDATOR_CATCH_RET(isolate, context)
     }
 
     void Validator::BundleIdentifier(Local<String> property, const PropertyCallbackInfo<Value> & info) {
         Isolate * isolate = info.GetIsolate();
         HandleScope handleScope(isolate);
-        TRY
+        auto context = isolate->GetCurrentContext();
+        VALIDATOR_TRY
         Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
         if (validator->_bundleIdentifier.length() > 0) {
             info.GetReturnValue().Set(String::NewFromUtf8(isolate, validator->_bundleIdentifier.c_str()).ToLocalChecked());
         } else {
             info.GetReturnValue().SetUndefined();
         }
-        CATCH_RET(isolate)
+        VALIDATOR_CATCH_RET(isolate, context)
     }
 
     void Validator::SetBundleIdentifier(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> & info) {
         Isolate * isolate = info.GetIsolate();
         HandleScope handleScope(isolate);
-        TRY
+        auto context = isolate->GetCurrentContext();
+        VALIDATOR_TRY
         Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
         validator->_bundleIdentifier.clear();
         if (value->IsString()) {
@@ -656,14 +587,15 @@ namespace validator {
                 validator->_bundleIdentifier = *str;
             }
         }
-        CATCH_RET(isolate)
+        VALIDATOR_CATCH_RET(isolate, context)
     }
 
     void Validator::GUID(Local<String> property, const PropertyCallbackInfo<Value> & info) {
         Isolate * isolate = info.GetIsolate();
         HandleScope handleScope(isolate);
+        auto context = isolate->GetCurrentContext();
         Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
-        TRY
+        VALIDATOR_TRY
         const auto GUIDSize = validator->_GUID.size();
         if (GUIDSize > 0) {
             auto backingStore = ArrayBuffer::NewBackingStore(isolate, GUIDSize);
@@ -673,19 +605,20 @@ namespace validator {
         } else {
             info.GetReturnValue().SetUndefined();
         }
-        CATCH_RET(isolate)
+        VALIDATOR_CATCH_RET(isolate, context)
     }
 
     void Validator::SetGUID(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> & info) {
         Isolate * isolate = info.GetIsolate();
         HandleScope handleScope(isolate);
-        TRY
+        auto context = isolate->GetCurrentContext();
+        VALIDATOR_TRY
         Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
         validator->_GUID.clear();
         if (value->IsString()) {
             String::Utf8Value str(isolate, value);
             if (str.length() > 0) {
-                validator->_GUID = fromBase64<uint8_t>(*str);
+                validator->_GUID = decodeBase64String(*str);
             }
         } else if (value->IsArrayBuffer()) {
             const auto arrayBuffer = Local<ArrayBuffer>::Cast(value);
@@ -698,13 +631,14 @@ namespace validator {
                 validator->_GUID = std::move(v);
             }
         }
-        CATCH_RET(isolate)
+        VALIDATOR_CATCH_RET(isolate, context)
     }
 
     void Validator::RootCertificate(Local<String> property, const PropertyCallbackInfo<Value> & info) {
         Isolate * isolate = info.GetIsolate();
         HandleScope handleScope(isolate);
-        TRY
+        auto context = isolate->GetCurrentContext();
+        VALIDATOR_TRY
         Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
         const auto certSize = validator->_rootCertificate.size();
         if (certSize > 0) {
@@ -713,18 +647,20 @@ namespace validator {
             memcpy(backingStore->Data(), validator->_rootCertificate.data(), certSize);
             info.GetReturnValue().Set(ArrayBuffer::New(isolate, std::move(backingStore)));
         } else {
-            auto backingStore = ArrayBuffer::NewBackingStore(isolate, FILE__appleincrootcertificate_cer_SIZE);
+            const auto certificate = AppleIncRootCertificateFile();
+            auto backingStore = ArrayBuffer::NewBackingStore(isolate, certificate.second);
             if (!backingStore) throw Exception(ExceptionCodeInternal, __LINE__, "NewBackingStore");
-            memcpy(backingStore->Data(), FILE__appleincrootcertificate_cer_PTR, FILE__appleincrootcertificate_cer_SIZE);
+            memcpy(backingStore->Data(), certificate.first, certificate.second);
             info.GetReturnValue().Set(ArrayBuffer::New(isolate, std::move(backingStore)));
         }
-        CATCH_RET(isolate)
+        VALIDATOR_CATCH_RET(isolate, context)
     }
 
     void Validator::SetRootCertificate(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> & info) {
         Isolate * isolate = info.GetIsolate();
         HandleScope handleScope(isolate);
-        TRY
+        auto context = isolate->GetCurrentContext();
+        VALIDATOR_TRY
         Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
         validator->_rootCertificate.clear();
         if (value->IsArrayBuffer()) {
@@ -738,44 +674,46 @@ namespace validator {
                 validator->_rootCertificate = std::move(v);
             }
         }
-        CATCH_RET(isolate)
+        VALIDATOR_CATCH_RET(isolate, context)
     }
 
     void Validator::InAppReceiptFields(Local<String> property, const PropertyCallbackInfo<Value> & info) {
         Isolate * isolate = info.GetIsolate();
         HandleScope handleScope(isolate);
-        TRY
+        auto context = isolate->GetCurrentContext();
+        VALIDATOR_TRY
         Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
         info.GetReturnValue().Set(Int32::New(isolate, validator->_inAppReceiptFields));
-        CATCH_RET(isolate)
+        VALIDATOR_CATCH_RET(isolate, context)
     }
 
     void Validator::SetInAppReceiptFields(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> & info) {
         Isolate * isolate = info.GetIsolate();
         HandleScope handleScope(isolate);
         auto context = isolate->GetCurrentContext();
-        TRY
+        VALIDATOR_TRY
         Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
-        int fields = InAppReceiptFieldAll;
+        uint32_t fields = InAppReceiptFieldAll;
         if (value->IsNumber()) {
-            fields = static_cast<int>(value->ToNumber(context).ToLocalChecked()->Value());
+            fields = static_cast<uint32_t>(value->ToNumber(context).ToLocalChecked()->Value());
         }
         validator->_inAppReceiptFields = fields;
-        CATCH_RET(isolate)
+        VALIDATOR_CATCH_RET(isolate, context)
     }
 
     void Validator::Validate(const FunctionCallbackInfo<Value> & args) {
         Isolate * isolate = args.GetIsolate();
         HandleScope handleScope(isolate);
+        auto context = isolate->GetCurrentContext();
         auto receiptObject = Object::New(isolate);
-        TRY
+        VALIDATOR_TRY
         Validator * validator = ObjectWrap::Unwrap<Validator>(args.Holder());
         std::vector<uint8_t> inReceipt;
         if (args.Length() > 0) {
             if (args[0]->IsString()) {
                 String::Utf8Value str(isolate, args[0]);
                 if (str.length() > 0) {
-                    inReceipt = fromBase64<uint8_t>(*str);
+                    inReceipt = decodeBase64String(*str);
                 } else {
                     throw Exception(ExceptionCodeInput, __LINE__, "Receipt is empty");
                 }
@@ -796,7 +734,7 @@ namespace validator {
         } else {
             throw Exception(ExceptionCodeInput, __LINE__, "Receipt is empty");
         }
-        CATCH_RET(isolate)
+        VALIDATOR_CATCH_RET(isolate, context)
         args.GetReturnValue().Set(receiptObject);
     }
 
@@ -863,9 +801,6 @@ static void ValidatorModuleInit(Local<Object> exports) {
 }
 
 NODE_MODULE(aiap_local_validator, ValidatorModuleInit)
-
-#include "file__appleincrootcertificate_cer.h"
-
 
 /// Case #1
 // std::string s1{"abcd"};
