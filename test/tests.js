@@ -65,6 +65,10 @@ if (typeof validator.inAppReceiptFields !== 'number') throw '';
 let fields = InAppReceiptField.quantity | InAppReceiptField.expires_date | InAppReceiptField.product_id;
 validator.inAppReceiptFields = fields;
 if (validator.inAppReceiptFields !== fields) throw '';
+validator.inAppReceiptFields = InAppReceiptField.all + 1; // unsupported value -> reset to a default value 'all'
+if (validator.inAppReceiptFields !== InAppReceiptField.all) throw '';
+validator.inAppReceiptFields = -1; // unsupported value -> reset to a default value 'all'
+if (validator.inAppReceiptFields !== InAppReceiptField.all) throw '';
 
 let passed = false;
 try {

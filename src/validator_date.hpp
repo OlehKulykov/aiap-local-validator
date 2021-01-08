@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020 Oleh Kulykov <olehkulykov@gmail.com>
+// Copyright (c) 2020 - 2021 Oleh Kulykov <olehkulykov@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,7 +26,7 @@
 #include <ctime>
 
 #ifndef __VALIDATOR_DATE_HPP__
-#define __VALIDATOR_DATE_HPP__
+#define __VALIDATOR_DATE_HPP__ 1
 
 namespace validator {
 

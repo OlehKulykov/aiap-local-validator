@@ -35,6 +35,7 @@
 		243009F9257E5D77009CFB39 /* libcrypto.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcrypto.a; path = ../../../../../opt/local/lib/libcrypto.a; sourceTree = "<group>"; };
 		24527085258F8372008F7244 /* date.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = date.h; path = ../../src/date.h; sourceTree = "<group>"; };
 		2481006125804B32003E73CF /* apple_base64.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = apple_base64.h; path = ../../src/apple_base64.h; sourceTree = "<group>"; };
+		2481CB3525A8F49000C11399 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../../README.md; sourceTree = "<group>"; };
 		24B19767258FF0900066D0E6 /* validator_exception.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = validator_exception.hpp; path = ../../src/validator_exception.hpp; sourceTree = "<group>"; };
 		24B1976B258FF4C70066D0E6 /* validator_date.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = validator_date.hpp; path = ../../src/validator_date.hpp; sourceTree = "<group>"; };
 		24B1976C258FF4C70066D0E6 /* validator_date.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = validator_date.cpp; path = ../../src/validator_date.cpp; sourceTree = "<group>"; };
@@ -89,6 +90,7 @@
 				2481006125804B32003E73CF /* apple_base64.h */,
 				243009F1257E5125009CFB39 /* validator.cpp */,
 				243009E9257E5117009CFB39 /* main.cpp */,
+				2481CB3525A8F49000C11399 /* README.md */,
 			);
 			path = TestXcode;
 			sourceTree = "<group>";
@@ -218,7 +220,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
-				SYSTEM_HEADER_SEARCH_PATHS = /Users/okulykov/.nvm/versions/node/v14.9.0/include/node/;
+				SYSTEM_HEADER_SEARCH_PATHS = /Users/okulykov/.nvm/versions/node/v10.23.1/include/node/;
 			};
 			name = Debug;
 		};
@@ -271,7 +273,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
-				SYSTEM_HEADER_SEARCH_PATHS = /Users/okulykov/.nvm/versions/node/v14.9.0/include/node/;
+				SYSTEM_HEADER_SEARCH_PATHS = /Users/okulykov/.nvm/versions/node/v10.23.1/include/node/;
 			};
 			name = Release;
 		};

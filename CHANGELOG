@@ -1,2 +1,5 @@
-1.0.0 (current):
+1.0.1 (current):
+- Node.js 10 & up support.
+
+1.0.0:
 - Initial release.

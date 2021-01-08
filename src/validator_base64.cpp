@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020 Oleh Kulykov <olehkulykov@gmail.com>
+// Copyright (c) 2020 - 2021 Oleh Kulykov <olehkulykov@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,10 +23,11 @@
 
 
 #include <limits>
-#include <limits.h>
 
 #include "validator_base64.hpp"
 #include "validator_exception.hpp"
+
+#include <limits.h>
 
 #include "apple_base64.h"
 

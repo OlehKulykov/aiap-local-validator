@@ -1,6 +1,6 @@
 {
   "name": "aiap-local-validator",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Apple's in-app purchase local, on-device, receipt validator",
   "author": "Oleh Kulykov <olehkulykov@gmail.com>",
   "license": "SEE LICENSE IN LICENSE",
@@ -20,7 +20,7 @@
     "url": "https://github.com/OlehKulykov/aiap-local-validator.git"
   },
   "engines": {
-    "node": ">=13.0.0",
+    "node": ">=10.0.0",
     "npm": ">=6.0.0"
   },
   "dependencies": {},

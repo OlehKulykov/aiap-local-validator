@@ -1,4 +1,4 @@
-﻿## Apple's in-app purchases local, on-device, receipt validator module for node.js.
+## Apple's in-app purchases local, on-device, receipt validator module for node.js.
 [![Build Status](https://travis-ci.org/OlehKulykov/aiap-local-validator.svg?branch=master)](https://travis-ci.org/OlehKulykov/aiap-local-validator)
 -----------
 
@@ -67,6 +67,7 @@ Default: ```undefined```.
 Provide the application's version to check with the receipt.
 If this value exists and the receipt contains different version ⇒ Exception(ErrorCode.validation).
 ```swift
+// From the iOS client app.
 let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
 ```
 
@@ -75,6 +76,7 @@ Default: ```undefined```.
 Provide the application's bundle identifier to check with the receipt.
 If this value exists and the receipt contains different bundle identifier ⇒ Exception(ErrorCode.validation).
 ```swift
+// From the iOS client app.
 let bundleIdentifier = Bundle.main.bundleIdentifier
 ```
 
@@ -83,17 +85,19 @@ Default: ```undefined```.
 Provide the application's GUID as a Base64 string or as ArrayBuffer of raw GUID data to check with the receipt.
 If this value exists and the receipt contains different GUID ⇒ Exception(ErrorCode.validation).
 ```swift
+// From the iOS client app.
 var deviceIdentifier = UIDevice.current.identifierForVendor?.uuid
 let rawDeviceIdentifierPointer = withUnsafePointer(to: &deviceIdentifier) {
     return UnsafeRawPointer($0)
 }
-let rawGUID = NSData(bytes: rawDeviceIdentifierPointer, length: 16)
-let base64GUID = rawGUID.base64EncodedString()
+let rawGUID = NSData(bytes: rawDeviceIdentifierPointer, length: 16) // send as raw data via 'POST' request
+let base64GUID = rawGUID.base64EncodedString() // send as Base64 string via 'GET' request or any other
 ```
 
 ### <a name="class_validator_inappreceiptfields"></a>Validator.inAppReceiptFields ⇔ Number
 Default: ```InAppReceiptField.all```.
 Bit-mask value of the 'In App Receipt' fields.
+To reset to a default 'all' value, provide ```undefined``` value or any unsupported combination of the bit-mask value.
 
 ### <a name="class_validator_root_certificate"></a>Validator.rootCertificate ⇔ ArrayBuffer
 Default: bundled raw data of the 'Apple Inc Root Certificate' as ```ArrayBuffer```.
@@ -116,11 +120,11 @@ https://developer.apple.com/library/archive/releasenotes/General/ValidateAppStor
 ```json
 {
   "engines": {
-    "node": ">=13.0.0",
+    "node": ">=10.0.0",
     "npm": ">=6.0.0"
   },
   "dependencies": {
-    "aiap-local-validator": "^1.0.0"
+    "aiap-local-validator": "^1.0.1"
   }
 }
 ```
@@ -136,7 +140,7 @@ try {
     const validator = new Validator();
     
     // Optinaly select fields of the 'In App Receipt', otherwise all fields.
-    validator.inAppReceiptFields = InAppReceiptField.expires_date | InAppReceiptField.product_id;
+    validator.inAppReceiptFields = InAppReceiptField.expires_date | InAppReceiptField.product_id | ...;
     
     // Optionaly, but recommended, validate the receipt with 'bundleIdentifier', 'version' and 'GUID'.
     validator.bundleIdentifier = 'my.cool.app'; // If validation was failed, the receipt was created by another app -> invalid.
@@ -169,7 +173,7 @@ Then the extra field with '_ms' prefix will be added with parsed date value in m
 -----------
 MIT License
 
-Copyright (c) 2020 OlehKulykov <olehkulykov@gmail.com>
+Copyright (c) 2020 - 2021 OlehKulykov <olehkulykov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

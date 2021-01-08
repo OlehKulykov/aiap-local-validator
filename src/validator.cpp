@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 //
-// Copyright (c) 2020 Oleh Kulykov <olehkulykov@gmail.com>
+// Copyright (c) 2020 - 2021 Oleh Kulykov <olehkulykov@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -40,10 +40,115 @@
 #include "validator_base64.hpp"
 #include "validator_files.hpp"
 
+#include <string.h>
+
 using namespace v8;
+
+#if !defined(NODE_MAJOR_VERSION)
+#error "NODE_MAJOR_VERSION"
+#endif
+
 
 #define VALIDATOR_TRY \
 try { \
+
+
+#if (NODE_MAJOR_VERSION == 11 || NODE_MAJOR_VERSION == 10)
+
+#define VALIDATOR_CREATEDATAPROPERTY_NUM(ISOLATE, CTX, OBJ, KEY, VAL) \
+OBJ->CreateDataProperty(CTX, String::NewFromUtf8(ISOLATE, KEY), Number::New(ISOLATE, VAL)).ToChecked(); \
+
+
+#define VALIDATOR_CREATEDATAPROPERTY_STR_LEN(ISOLATE, CTX, OBJ, KEY, VAL, VAL_LEN) \
+OBJ->CreateDataProperty(CTX, String::NewFromUtf8(ISOLATE, KEY, NewStringType::kNormal).ToLocalChecked(), String::NewFromUtf8(ISOLATE, VAL, NewStringType::kNormal, VAL_LEN).ToLocalChecked()).ToChecked(); \
+
+
+#define VALIDATOR_CREATEDATAPROPERTY_DATE_MS(ISOLATE, CTX, OBJ, KEY, MS) \
+OBJ->CreateDataProperty(CTX, String::NewFromUtf8(ISOLATE, KEY, NewStringType::kNormal).ToLocalChecked(), Number::New(ISOLATE, MS)).ToChecked(); \
+
+
+#define VALIDATOR_CREATEDATAPROPERTY_OBJ(ISOLATE, CTX, OBJ, KEY, VAL_OBJ) \
+OBJ->CreateDataProperty(CTX, String::NewFromUtf8(isolate, KEY, NewStringType::kNormal).ToLocalChecked(), VAL_OBJ).ToChecked(); \
+
+
+#define VALIDATOR_CATCH_RET(ISOLATE, CTX) \
+} catch (const validator::Exception & e) { \
+    auto error = v8::Exception::Error(String::NewFromUtf8(ISOLATE, e.what() ?: "unknown", NewStringType::kNormal).ToLocalChecked()); \
+    auto errorObject = error->ToObject(CTX).ToLocalChecked(); \
+    errorObject->Set(CTX, String::NewFromUtf8(ISOLATE, "lineNumber", NewStringType::kNormal).ToLocalChecked(), Integer::New(ISOLATE, e.line())).ToChecked(); \
+    errorObject->Set(CTX, String::NewFromUtf8(ISOLATE, "code", NewStringType::kNormal).ToLocalChecked(), Integer::New(ISOLATE, e.code())).ToChecked(); \
+    ISOLATE->ThrowException(errorObject); \
+    return; \
+} catch (const std::exception & e) { \
+    ISOLATE->ThrowException(v8::Exception::Error(String::NewFromUtf8(ISOLATE, e.what() ?: "unknown", NewStringType::kNormal).ToLocalChecked())); \
+    return; \
+} \
+
+
+#define VALIDATOR_THROWEXCEPTION(ISOLATE, STR) \
+ISOLATE->ThrowException(v8::Exception::Error(String::NewFromUtf8(ISOLATE, STR, NewStringType::kNormal).ToLocalChecked())); \
+
+
+#define VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(ISOLATE, STR) \
+String::NewFromUtf8(ISOLATE, STR, NewStringType::kNormal).ToLocalChecked()
+
+
+#elif (NODE_MAJOR_VERSION == 12)
+
+#define VALIDATOR_CREATEDATAPROPERTY_NUM(ISOLATE, CTX, OBJ, KEY, VAL) \
+OBJ->CreateDataProperty(CTX, String::NewFromUtf8(ISOLATE, KEY, NewStringType::kNormal).ToLocalChecked(), Number::New(ISOLATE, VAL)).Check(); \
+
+
+#define VALIDATOR_CREATEDATAPROPERTY_STR_LEN(ISOLATE, CTX, OBJ, KEY, VAL, VAL_LEN) \
+OBJ->CreateDataProperty(CTX, String::NewFromUtf8(ISOLATE, KEY, NewStringType::kNormal).ToLocalChecked(), String::NewFromUtf8(ISOLATE, VAL, NewStringType::kNormal, VAL_LEN).ToLocalChecked()).Check(); \
+
+
+#define VALIDATOR_CREATEDATAPROPERTY_DATE_MS(ISOLATE, CTX, OBJ, KEY, MS) \
+OBJ->CreateDataProperty(CTX, String::NewFromUtf8(ISOLATE, KEY, NewStringType::kNormal).ToLocalChecked(), Number::New(ISOLATE, MS)).Check(); \
+
+
+#define VALIDATOR_CREATEDATAPROPERTY_OBJ(ISOLATE, CTX, OBJ, KEY, VAL_OBJ) \
+OBJ->CreateDataProperty(CTX, String::NewFromUtf8(isolate, KEY, NewStringType::kNormal).ToLocalChecked(), VAL_OBJ).Check(); \
+
+
+#define VALIDATOR_CATCH_RET(ISOLATE, CTX) \
+} catch (const validator::Exception & e) { \
+    auto error = v8::Exception::Error(String::NewFromUtf8(ISOLATE, e.what() ?: "unknown", NewStringType::kNormal).ToLocalChecked()); \
+    auto errorObject = error->ToObject(CTX).ToLocalChecked(); \
+    errorObject->Set(CTX, String::NewFromUtf8(ISOLATE, "lineNumber", NewStringType::kNormal).ToLocalChecked(), Integer::New(ISOLATE, e.line())).Check(); \
+    errorObject->Set(CTX, String::NewFromUtf8(ISOLATE, "code", NewStringType::kNormal).ToLocalChecked(), Integer::New(ISOLATE, e.code())).Check(); \
+    ISOLATE->ThrowException(errorObject); \
+    return; \
+} catch (const std::exception & e) { \
+    ISOLATE->ThrowException(v8::Exception::Error(String::NewFromUtf8(ISOLATE, e.what() ?: "unknown", NewStringType::kNormal).ToLocalChecked())); \
+    return; \
+} \
+
+
+#define VALIDATOR_THROWEXCEPTION(ISOLATE, STR) \
+ISOLATE->ThrowException(v8::Exception::Error(String::NewFromUtf8(ISOLATE, STR, NewStringType::kNormal).ToLocalChecked())); \
+
+
+#define VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(ISOLATE, STR) \
+String::NewFromUtf8(ISOLATE, STR, NewStringType::kNormal).ToLocalChecked()
+
+
+#else  // NODE_MAJOR_VERSION != 12
+
+#define VALIDATOR_CREATEDATAPROPERTY_NUM(ISOLATE, CTX, OBJ, KEY, VAL) \
+OBJ->CreateDataProperty(CTX, String::NewFromUtf8(ISOLATE, KEY).ToLocalChecked(), Number::New(ISOLATE, VAL)).Check(); \
+
+
+#define VALIDATOR_CREATEDATAPROPERTY_STR_LEN(ISOLATE, CTX, OBJ, KEY, VAL, VAL_LEN) \
+OBJ->CreateDataProperty(CTX, String::NewFromUtf8(ISOLATE, KEY).ToLocalChecked(), String::NewFromUtf8(ISOLATE, VAL, NewStringType::kNormal, VAL_LEN).ToLocalChecked()).Check(); \
+
+
+#define VALIDATOR_CREATEDATAPROPERTY_DATE_MS(ISOLATE, CTX, OBJ, KEY, MS) \
+OBJ->CreateDataProperty(CTX, String::NewFromUtf8(ISOLATE, KEY).ToLocalChecked(), Number::New(ISOLATE, MS)).Check(); \
+
+
+#define VALIDATOR_CREATEDATAPROPERTY_OBJ(ISOLATE, CTX, OBJ, KEY, VAL_OBJ) \
+OBJ->CreateDataProperty(CTX, String::NewFromUtf8(isolate, KEY).ToLocalChecked(), VAL_OBJ).Check(); \
 
 
 #define VALIDATOR_CATCH_RET(ISOLATE, CTX) \
@@ -58,6 +163,17 @@ try { \
     ISOLATE->ThrowException(v8::Exception::Error(String::NewFromUtf8(ISOLATE, e.what() ?: "unknown").ToLocalChecked())); \
     return; \
 } \
+
+
+#define VALIDATOR_THROWEXCEPTION(ISOLATE, STR) \
+ISOLATE->ThrowException(v8::Exception::Error(String::NewFromUtf8(ISOLATE, STR).ToLocalChecked())); \
+
+
+#define VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(ISOLATE, STR) \
+String::NewFromUtf8(ISOLATE, STR).ToLocalChecked()
+
+
+#endif // NODE_MAJOR_VERSION != 12
 
 
 namespace validator {
@@ -257,7 +373,7 @@ namespace validator {
                     if (_inAppReceiptFields & InAppReceiptFieldQuantity) {
                         std::unique_ptr<ASN1_INTEGER, ASN1IntDeleter> intVal(d2i_ASN1_INTEGER(nullptr, &ptr, sequenceEnd - ptr), ASN1IntDeleter());
                         if (!intVal) throw Exception(ExceptionCodeFormat, __LINE__, "Quantity");
-                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "quantity").ToLocalChecked(), Number::New(isolate, ASN1_INTEGER_get(intVal.get()))).Check();
+                        VALIDATOR_CREATEDATAPROPERTY_NUM(isolate, context, receiptObject, "quantity", ASN1_INTEGER_get(intVal.get()))
                     }
                     break;
                     
@@ -265,7 +381,7 @@ namespace validator {
                     if (_inAppReceiptFields & InAppReceiptFieldWebOrderLineItemId) {
                         std::unique_ptr<ASN1_INTEGER, ASN1IntDeleter> intVal(d2i_ASN1_INTEGER(nullptr, &ptr, sequenceEnd - ptr), ASN1IntDeleter());
                         if (!intVal) throw Exception(ExceptionCodeFormat, __LINE__, "Web Order Line Item ID");
-                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "web_order_line_item_id").ToLocalChecked(), Number::New(isolate, ASN1_INTEGER_get(intVal.get()))).Check();
+                        VALIDATOR_CREATEDATAPROPERTY_NUM(isolate, context, receiptObject, "web_order_line_item_id", ASN1_INTEGER_get(intVal.get()))
                     }
                     break;
                     
@@ -273,7 +389,7 @@ namespace validator {
                     if (_inAppReceiptFields & InAppReceiptFieldIsInIntroOfferPeriod) {
                         std::unique_ptr<ASN1_INTEGER, ASN1IntDeleter> intVal(d2i_ASN1_INTEGER(nullptr, &ptr, sequenceEnd - ptr), ASN1IntDeleter());
                         if (!intVal) throw Exception(ExceptionCodeFormat, __LINE__, "Subscription Introductory Price Period");
-                        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "is_in_intro_offer_period").ToLocalChecked(), Number::New(isolate, ASN1_INTEGER_get(intVal.get()))).Check();
+                        VALIDATOR_CREATEDATAPROPERTY_NUM(isolate, context, receiptObject, "is_in_intro_offer_period", ASN1_INTEGER_get(intVal.get()))
                     }
                     break;
                     
@@ -282,7 +398,7 @@ namespace validator {
                         std::unique_ptr<ASN1_UTF8STRING, ASN1Utf8StringDeleter> utf8String(d2i_ASN1_UTF8STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Utf8StringDeleter());
                         if (!utf8String) throw Exception(ExceptionCodeFormat, __LINE__, "Product Identifier");
                         if (utf8String->length >= 0) {
-                            receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "product_id").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(utf8String->data), NewStringType::kNormal, static_cast<int>(utf8String->length)).ToLocalChecked()).Check();
+                            VALIDATOR_CREATEDATAPROPERTY_STR_LEN(isolate, context, receiptObject, "product_id", reinterpret_cast<const char *>(utf8String->data), static_cast<int>(utf8String->length))
                         }
                     }
                     break;
@@ -292,7 +408,7 @@ namespace validator {
                         std::unique_ptr<ASN1_UTF8STRING, ASN1Utf8StringDeleter> utf8String(d2i_ASN1_UTF8STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Utf8StringDeleter());
                         if (!utf8String) throw Exception(ExceptionCodeFormat, __LINE__, "Transaction Identifier");
                         if (utf8String->length >= 0) {
-                            receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "transaction_id").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(utf8String->data), NewStringType::kNormal, static_cast<int>(utf8String->length)).ToLocalChecked()).Check();
+                            VALIDATOR_CREATEDATAPROPERTY_STR_LEN(isolate, context, receiptObject, "transaction_id", reinterpret_cast<const char *>(utf8String->data), static_cast<int>(utf8String->length))
                         }
                     }
                     break;
@@ -302,7 +418,7 @@ namespace validator {
                         std::unique_ptr<ASN1_UTF8STRING, ASN1Utf8StringDeleter> utf8String(d2i_ASN1_UTF8STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Utf8StringDeleter());
                         if (!utf8String) throw Exception(ExceptionCodeFormat, __LINE__, "Original Transaction Identifier");
                         if (utf8String->length >= 0) {
-                            receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "original_transaction_id").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(utf8String->data), NewStringType::kNormal, static_cast<int>(utf8String->length)).ToLocalChecked()).Check();
+                            VALIDATOR_CREATEDATAPROPERTY_STR_LEN(isolate, context, receiptObject, "original_transaction_id", reinterpret_cast<const char *>(utf8String->data), static_cast<int>(utf8String->length))
                         }
                     }
                     break;
@@ -312,8 +428,8 @@ namespace validator {
                         std::unique_ptr<ASN1_IA5STRING, ASN1Ia5StringDeleter> ia5String(d2i_ASN1_IA5STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Ia5StringDeleter());
                         if (!ia5String) throw Exception(ExceptionCodeFormat, __LINE__, "Purchase Date");
                         if (ia5String->length >= 0) {
-                            receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "purchase_date").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(ia5String->data), NewStringType::kNormal, static_cast<int>(ia5String->length)).ToLocalChecked()).Check();
-                            receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "purchase_date_ms").ToLocalChecked(), Number::New(isolate, millisecondsFromRFC3339DateString(reinterpret_cast<const char *>(ia5String->data)))).Check();
+                            VALIDATOR_CREATEDATAPROPERTY_STR_LEN(isolate, context, receiptObject, "purchase_date", reinterpret_cast<const char *>(ia5String->data), static_cast<int>(ia5String->length))
+                            VALIDATOR_CREATEDATAPROPERTY_DATE_MS(isolate, context, receiptObject, "purchase_date_ms", millisecondsFromRFC3339DateString(reinterpret_cast<const char *>(ia5String->data)))
                         }
                     }
                     break;
@@ -323,8 +439,8 @@ namespace validator {
                         std::unique_ptr<ASN1_IA5STRING, ASN1Ia5StringDeleter> ia5String(d2i_ASN1_IA5STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Ia5StringDeleter());
                         if (!ia5String) throw Exception(ExceptionCodeFormat, __LINE__, "Original Purchase Date");
                         if (ia5String->length >= 0) {
-                            receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "original_purchase_date").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(ia5String->data), NewStringType::kNormal, static_cast<int>(ia5String->length)).ToLocalChecked()).Check();
-                            receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "original_purchase_date_ms").ToLocalChecked(), Number::New(isolate, millisecondsFromRFC3339DateString(reinterpret_cast<const char *>(ia5String->data)))).Check();
+                            VALIDATOR_CREATEDATAPROPERTY_STR_LEN(isolate, context, receiptObject, "original_purchase_date", reinterpret_cast<const char *>(ia5String->data), static_cast<int>(ia5String->length))
+                            VALIDATOR_CREATEDATAPROPERTY_DATE_MS(isolate, context, receiptObject, "original_purchase_date_ms", millisecondsFromRFC3339DateString(reinterpret_cast<const char *>(ia5String->data)))
                         }
                     }
                     break;
@@ -334,8 +450,8 @@ namespace validator {
                         std::unique_ptr<ASN1_IA5STRING, ASN1Ia5StringDeleter> ia5String(d2i_ASN1_IA5STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Ia5StringDeleter());
                         if (!ia5String) throw Exception(ExceptionCodeFormat, __LINE__, "Subscription Expiration Date");
                         if (ia5String->length >= 0) {
-                            receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "expires_date").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(ia5String->data), NewStringType::kNormal, static_cast<int>(ia5String->length)).ToLocalChecked()).Check();
-                            receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "expires_date_ms").ToLocalChecked(), Number::New(isolate, millisecondsFromRFC3339DateString(reinterpret_cast<const char *>(ia5String->data)))).Check();
+                            VALIDATOR_CREATEDATAPROPERTY_STR_LEN(isolate, context, receiptObject, "expires_date", reinterpret_cast<const char *>(ia5String->data), static_cast<int>(ia5String->length))
+                            VALIDATOR_CREATEDATAPROPERTY_DATE_MS(isolate, context, receiptObject, "expires_date_ms", millisecondsFromRFC3339DateString(reinterpret_cast<const char *>(ia5String->data)))
                         }
                     }
                     break;
@@ -345,8 +461,8 @@ namespace validator {
                         std::unique_ptr<ASN1_IA5STRING, ASN1Ia5StringDeleter> ia5String(d2i_ASN1_IA5STRING(nullptr, &ptr, sequenceEnd - ptr), ASN1Ia5StringDeleter());
                         if (!ia5String) throw Exception(ExceptionCodeFormat, __LINE__, "Cancellation Date");
                         if (ia5String->length >= 0) {
-                            receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "cancellation_date").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(ia5String->data), NewStringType::kNormal, static_cast<int>(ia5String->length)).ToLocalChecked()).Check();
-                            receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "cancellation_date_ms").ToLocalChecked(), Number::New(isolate, millisecondsFromRFC3339DateString(reinterpret_cast<const char *>(ia5String->data)))).Check();
+                            VALIDATOR_CREATEDATAPROPERTY_STR_LEN(isolate, context, receiptObject, "cancellation_date", reinterpret_cast<const char *>(ia5String->data), static_cast<int>(ia5String->length))
+                            VALIDATOR_CREATEDATAPROPERTY_DATE_MS(isolate, context, receiptObject, "cancellation_date_ms", millisecondsFromRFC3339DateString(reinterpret_cast<const char *>(ia5String->data)))
                         }
                     }
                     break;
@@ -420,7 +536,7 @@ namespace validator {
                         receiptFields.bundleIdentifierSize = len;
                         guidFields |= GUIDValidationFieldBundleId;
                         if (tmpUtf8->length >= 0) {
-                            receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "bundle_id").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(tmpUtf8->data), NewStringType::kNormal, static_cast<int>(tmpUtf8->length)).ToLocalChecked()).Check();
+                            VALIDATOR_CREATEDATAPROPERTY_STR_LEN(isolate, context, receiptObject, "bundle_id", reinterpret_cast<const char *>(tmpUtf8->data), static_cast<int>(tmpUtf8->length))
                         }
                     } else {
                         throw Exception(ExceptionCodeFormat, __LINE__, "Bundle Identifier version"); // unsupported attribute version -> check docs -> update code
@@ -477,7 +593,7 @@ namespace validator {
                             if (str != _version) throw Exception(ExceptionCodeValidation, __LINE__, "App Version");
                         }
                         if (tmpUtf8->length >= 0) {
-                            receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "application_version").ToLocalChecked(), String::NewFromUtf8(isolate, reinterpret_cast<const char *>(tmpUtf8->data), NewStringType::kNormal, static_cast<int>(tmpUtf8->length)).ToLocalChecked()).Check();
+                            VALIDATOR_CREATEDATAPROPERTY_STR_LEN(isolate, context, receiptObject, "application_version", reinterpret_cast<const char *>(tmpUtf8->data), static_cast<int>(tmpUtf8->length))
                         }
                     } else {
                         throw Exception(ExceptionCodeFormat, __LINE__, "App Version version"); // unsupported attribute version -> check docs -> update code
@@ -488,7 +604,11 @@ namespace validator {
                     if (attrVersion == 1) {
                         auto inAppReceiptObject = Object::New(isolate);
                         parseInAppReceiptPayload(ptr, len, isolate, inAppReceiptObject);
+#if (NODE_MAJOR_VERSION == 11 || NODE_MAJOR_VERSION == 10)
+                        receiptsArray->Set(context, receiptsArrayIndex++, inAppReceiptObject).ToChecked();
+#else
                         receiptsArray->Set(context, receiptsArrayIndex++, inAppReceiptObject).Check();
+#endif
                     } else {
                         throw Exception(ExceptionCodeFormat, __LINE__, "In-App Purchase Receipt version"); // unsupported attribute version -> check docs -> update code
                     }
@@ -501,7 +621,7 @@ namespace validator {
             ptr = octStr + octStrLen;
         }
 
-        receiptObject->CreateDataProperty(context, String::NewFromUtf8(isolate, "in_app").ToLocalChecked(), receiptsArray).Check();
+        VALIDATOR_CREATEDATAPROPERTY_OBJ(isolate, context, receiptObject, "in_app", receiptsArray)
     }
     
     void Validator::New(const FunctionCallbackInfo<Value> & args) {
@@ -522,7 +642,7 @@ namespace validator {
                 if (trycatch.HasCaught()) {
                     trycatch.ReThrow();
                 } else {
-                    isolate->ThrowException(v8::Exception::Error(String::NewFromUtf8(isolate, "Can't instantiate Validator.").ToLocalChecked()));
+                    VALIDATOR_THROWEXCEPTION(isolate, "Can't instantiate Validator.")
                 }
                 return;
             }
@@ -537,7 +657,7 @@ namespace validator {
         VALIDATOR_TRY
         Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
         if (validator->_version.length() > 0) {
-            info.GetReturnValue().Set(String::NewFromUtf8(isolate, validator->_version.c_str()).ToLocalChecked());
+            info.GetReturnValue().Set(VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, validator->_version.c_str()));
         } else {
             info.GetReturnValue().SetUndefined();
         }
@@ -567,7 +687,7 @@ namespace validator {
         VALIDATOR_TRY
         Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
         if (validator->_bundleIdentifier.length() > 0) {
-            info.GetReturnValue().Set(String::NewFromUtf8(isolate, validator->_bundleIdentifier.c_str()).ToLocalChecked());
+            info.GetReturnValue().Set(VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, validator->_bundleIdentifier.c_str()));
         } else {
             info.GetReturnValue().SetUndefined();
         }
@@ -598,10 +718,14 @@ namespace validator {
         VALIDATOR_TRY
         const auto GUIDSize = validator->_GUID.size();
         if (GUIDSize > 0) {
+#if (NODE_MAJOR_VERSION == 12 || NODE_MAJOR_VERSION == 11 || NODE_MAJOR_VERSION == 10)
+            info.GetReturnValue().Set(ArrayBuffer::New(isolate, validator->_GUID.data(), GUIDSize));
+#else
             auto backingStore = ArrayBuffer::NewBackingStore(isolate, GUIDSize);
             if (!backingStore) throw Exception(ExceptionCodeInternal, __LINE__, "NewBackingStore");
             memcpy(backingStore->Data(), validator->_GUID.data(), GUIDSize);
             info.GetReturnValue().Set(ArrayBuffer::New(isolate, std::move(backingStore)));
+#endif
         } else {
             info.GetReturnValue().SetUndefined();
         }
@@ -622,6 +746,16 @@ namespace validator {
             }
         } else if (value->IsArrayBuffer()) {
             const auto arrayBuffer = Local<ArrayBuffer>::Cast(value);
+#if (NODE_MAJOR_VERSION == 12 || NODE_MAJOR_VERSION == 11 || NODE_MAJOR_VERSION == 10)
+            const auto contents = arrayBuffer->GetContents();
+            const size_t byteLength = contents.ByteLength();
+            if (byteLength > 0) {
+                std::vector<uint8_t> v;
+                v.resize(byteLength);
+                memcpy(v.data(), contents.Data(), byteLength);
+                validator->_GUID = std::move(v);
+            }
+#else
             const auto backingStore = arrayBuffer->GetBackingStore();
             const size_t byteLength = backingStore ? backingStore->ByteLength() : 0;
             if (byteLength > 0) {
@@ -630,6 +764,7 @@ namespace validator {
                 memcpy(v.data(), backingStore->Data(), byteLength);
                 validator->_GUID = std::move(v);
             }
+#endif
         }
         VALIDATOR_CATCH_RET(isolate, context)
     }
@@ -642,16 +777,24 @@ namespace validator {
         Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
         const auto certSize = validator->_rootCertificate.size();
         if (certSize > 0) {
+#if (NODE_MAJOR_VERSION == 12 || NODE_MAJOR_VERSION == 11 || NODE_MAJOR_VERSION == 10)
+            info.GetReturnValue().Set(ArrayBuffer::New(isolate, validator->_rootCertificate.data(), certSize));
+#else
             auto backingStore = ArrayBuffer::NewBackingStore(isolate, certSize);
             if (!backingStore) throw Exception(ExceptionCodeInternal, __LINE__, "NewBackingStore");
             memcpy(backingStore->Data(), validator->_rootCertificate.data(), certSize);
             info.GetReturnValue().Set(ArrayBuffer::New(isolate, std::move(backingStore)));
+#endif
         } else {
             const auto certificate = AppleIncRootCertificateFile();
+#if (NODE_MAJOR_VERSION == 12 || NODE_MAJOR_VERSION == 11 || NODE_MAJOR_VERSION == 10)
+            info.GetReturnValue().Set(ArrayBuffer::New(isolate, certificate.first, certificate.second));
+#else
             auto backingStore = ArrayBuffer::NewBackingStore(isolate, certificate.second);
             if (!backingStore) throw Exception(ExceptionCodeInternal, __LINE__, "NewBackingStore");
             memcpy(backingStore->Data(), certificate.first, certificate.second);
             info.GetReturnValue().Set(ArrayBuffer::New(isolate, std::move(backingStore)));
+#endif
         }
         VALIDATOR_CATCH_RET(isolate, context)
     }
@@ -665,6 +808,16 @@ namespace validator {
         validator->_rootCertificate.clear();
         if (value->IsArrayBuffer()) {
             const auto arrayBuffer = Local<ArrayBuffer>::Cast(value);
+#if (NODE_MAJOR_VERSION == 12 || NODE_MAJOR_VERSION == 11 || NODE_MAJOR_VERSION == 10)
+            const auto contents = arrayBuffer->GetContents();
+            const size_t byteLength = contents.ByteLength();
+            if (byteLength > 0) {
+                std::vector<uint8_t> v;
+                v.resize(byteLength);
+                memcpy(v.data(), contents.Data(), byteLength);
+                validator->_rootCertificate = std::move(v);
+            }
+#else
             const auto backingStore = arrayBuffer->GetBackingStore();
             const size_t byteLength = backingStore ? backingStore->ByteLength() : 0;
             if (byteLength > 0) {
@@ -673,6 +826,7 @@ namespace validator {
                 memcpy(v.data(), backingStore->Data(), byteLength);
                 validator->_rootCertificate = std::move(v);
             }
+#endif
         }
         VALIDATOR_CATCH_RET(isolate, context)
     }
@@ -695,7 +849,10 @@ namespace validator {
         Validator * validator = ObjectWrap::Unwrap<Validator>(info.Holder());
         uint32_t fields = InAppReceiptFieldAll;
         if (value->IsNumber()) {
-            fields = static_cast<uint32_t>(value->ToNumber(context).ToLocalChecked()->Value());
+            const auto bitMaskValue = value->ToNumber(context).ToLocalChecked()->Value();
+            if (bitMaskValue >= 0 && bitMaskValue <= InAppReceiptFieldAll) {
+                fields = static_cast<uint32_t>(bitMaskValue);
+            }
         }
         validator->_inAppReceiptFields = fields;
         VALIDATOR_CATCH_RET(isolate, context)
@@ -719,12 +876,22 @@ namespace validator {
                 }
             } else if (args[0]->IsArrayBuffer()) {
                 const auto arrayBuffer = Local<ArrayBuffer>::Cast(args[0]);
+#if (NODE_MAJOR_VERSION == 12 || NODE_MAJOR_VERSION == 11 || NODE_MAJOR_VERSION == 10)
+                const auto contents = arrayBuffer->GetContents();
+                const size_t byteLength = contents.ByteLength();
+                if (byteLength > 0) {
+                    inReceipt.resize(byteLength);
+                    memcpy(inReceipt.data(), contents.Data(), byteLength);
+                }
+#else
                 const auto backingStore = arrayBuffer->GetBackingStore();
                 const size_t byteLength = backingStore ? backingStore->ByteLength() : 0;
                 if (byteLength > 0) {
                     inReceipt.resize(byteLength);
                     memcpy(inReceipt.data(), backingStore->Data(), byteLength);
-                } else {
+                }
+#endif
+                else {
                     throw Exception(ExceptionCodeInput, __LINE__, "Receipt is empty");
                 }
             }
@@ -748,25 +915,25 @@ namespace validator {
         
         // Constructor template: 'Validator' func tpl
         auto ctorTpl = FunctionTemplate::New(isolate, Validator::New, dataObject);
-        ctorTpl->SetClassName(String::NewFromUtf8(isolate, "Validator").ToLocalChecked());
+        ctorTpl->SetClassName(VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "Validator"));
         
         auto ctorInstTpl = ctorTpl->InstanceTemplate();
         ctorInstTpl->SetInternalFieldCount(1);
         
         // (new Validator(...)).<func>(...)
         auto ctorProtoTpl = ctorTpl->PrototypeTemplate();
-        ctorProtoTpl->Set(String::NewFromUtf8(isolate, "validate").ToLocalChecked(), FunctionTemplate::New(isolate, Validator::Validate), static_cast<PropertyAttribute>(ReadOnly | DontDelete));
+        ctorProtoTpl->Set(VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "validate"), FunctionTemplate::New(isolate, Validator::Validate), static_cast<PropertyAttribute>(ReadOnly | DontDelete));
         
         // (new Validator(...)).<prop>
-        ctorInstTpl->SetAccessor(String::NewFromUtf8(isolate, "version").ToLocalChecked(), Validator::Version, Validator::SetVersion, Local<Value>(), DEFAULT, DontDelete);
-        ctorInstTpl->SetAccessor(String::NewFromUtf8(isolate, "bundleIdentifier").ToLocalChecked(), Validator::BundleIdentifier, Validator::SetBundleIdentifier, Local<Value>(), DEFAULT, DontDelete);
-        ctorInstTpl->SetAccessor(String::NewFromUtf8(isolate, "GUID").ToLocalChecked(), Validator::GUID, Validator::SetGUID, Local<Value>(), DEFAULT, DontDelete);
-        ctorInstTpl->SetAccessor(String::NewFromUtf8(isolate, "rootCertificate").ToLocalChecked(), Validator::RootCertificate, Validator::SetRootCertificate, Local<Value>(), DEFAULT, DontDelete);
-        ctorInstTpl->SetAccessor(String::NewFromUtf8(isolate, "inAppReceiptFields").ToLocalChecked(), Validator::InAppReceiptFields, Validator::SetInAppReceiptFields, Local<Value>(), DEFAULT, DontDelete);
+        ctorInstTpl->SetAccessor(VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "version"), Validator::Version, Validator::SetVersion, Local<Value>(), DEFAULT, DontDelete);
+        ctorInstTpl->SetAccessor(VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "bundleIdentifier"), Validator::BundleIdentifier, Validator::SetBundleIdentifier, Local<Value>(), DEFAULT, DontDelete);
+        ctorInstTpl->SetAccessor(VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "GUID"), Validator::GUID, Validator::SetGUID, Local<Value>(), DEFAULT, DontDelete);
+        ctorInstTpl->SetAccessor(VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "rootCertificate"), Validator::RootCertificate, Validator::SetRootCertificate, Local<Value>(), DEFAULT, DontDelete);
+        ctorInstTpl->SetAccessor(VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "inAppReceiptFields"), Validator::InAppReceiptFields, Validator::SetInAppReceiptFields, Local<Value>(), DEFAULT, DontDelete);
         
         auto constructor = ctorTpl->GetFunction(context).ToLocalChecked();
         dataObject->SetInternalField(0, constructor);
-        exports->Set(context, String::NewFromUtf8(isolate, "Validator").ToLocalChecked(), constructor).FromJust();
+        exports->Set(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "Validator"), constructor).FromJust();
     }
     
 } // validator
@@ -777,25 +944,46 @@ static void ValidatorModuleInit(Local<Object> exports) {
     auto context = isolate->GetCurrentContext();
     
     auto errorCodeObject = Object::New(isolate);
-    errorCodeObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "internal").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::ExceptionCodeInternal), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
-    errorCodeObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "input").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::ExceptionCodeInput), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
-    errorCodeObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "format").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::ExceptionCodeFormat), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
-    errorCodeObject->DefineOwnProperty(context, String::NewFromUtf8(isolate, "validation").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::ExceptionCodeValidation), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
-    exports->Set(context, String::NewFromUtf8(isolate, "ErrorCode").ToLocalChecked(), errorCodeObject).FromJust();
+#if (NODE_MAJOR_VERSION == 12 || NODE_MAJOR_VERSION == 11 || NODE_MAJOR_VERSION == 10)
+    errorCodeObject->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "internal"), Uint32::NewFromUnsigned(isolate, validator::ExceptionCodeInternal), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).ToChecked();
+    errorCodeObject->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "input"), Uint32::NewFromUnsigned(isolate, validator::ExceptionCodeInput), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).ToChecked();
+    errorCodeObject->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "format"), Uint32::NewFromUnsigned(isolate, validator::ExceptionCodeFormat), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).ToChecked();
+    errorCodeObject->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "validation"), Uint32::NewFromUnsigned(isolate, validator::ExceptionCodeValidation), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).ToChecked();
+#else
+    errorCodeObject->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "internal"), Uint32::NewFromUnsigned(isolate, validator::ExceptionCodeInternal), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    errorCodeObject->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "input"), Uint32::NewFromUnsigned(isolate, validator::ExceptionCodeInput), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    errorCodeObject->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "format"), Uint32::NewFromUnsigned(isolate, validator::ExceptionCodeFormat), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    errorCodeObject->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "validation"), Uint32::NewFromUnsigned(isolate, validator::ExceptionCodeValidation), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+#endif
+    exports->Set(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "ErrorCode"), errorCodeObject).FromJust();
     
     auto inAppReceiptField = Object::New(isolate);
-    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "quantity").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldQuantity), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
-    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "web_order_line_item_id").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldWebOrderLineItemId), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
-    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "is_in_intro_offer_period").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldIsInIntroOfferPeriod), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
-    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "product_id").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldProductId), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
-    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "transaction_id").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldTransactionId), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
-    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "original_transaction_id").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldOriginalTransactionId), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
-    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "purchase_date").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldPurchaseDate), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
-    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "original_purchase_date").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldOriginalPurchaseDate), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
-    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "expires_date").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldExpiresDate), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
-    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "cancellation_date").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldCancellationDate), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
-    inAppReceiptField->DefineOwnProperty(context, String::NewFromUtf8(isolate, "all").ToLocalChecked(), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldAll), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
-    exports->Set(context, String::NewFromUtf8(isolate, "InAppReceiptField").ToLocalChecked(), inAppReceiptField).FromJust();
+#if (NODE_MAJOR_VERSION == 12 || NODE_MAJOR_VERSION == 11 || NODE_MAJOR_VERSION == 10)
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "quantity"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldQuantity), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).ToChecked();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "web_order_line_item_id"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldWebOrderLineItemId), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).ToChecked();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "is_in_intro_offer_period"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldIsInIntroOfferPeriod), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).ToChecked();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "product_id"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldProductId), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).ToChecked();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "transaction_id"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldTransactionId), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).ToChecked();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "original_transaction_id"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldOriginalTransactionId), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).ToChecked();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "purchase_date"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldPurchaseDate), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).ToChecked();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "original_purchase_date"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldOriginalPurchaseDate), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).ToChecked();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "expires_date"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldExpiresDate), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).ToChecked();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "cancellation_date"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldCancellationDate), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).ToChecked();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "all"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldAll), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).ToChecked();
+#else
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "quantity"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldQuantity), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "web_order_line_item_id"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldWebOrderLineItemId), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "is_in_intro_offer_period"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldIsInIntroOfferPeriod), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "product_id"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldProductId), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "transaction_id"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldTransactionId), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "original_transaction_id"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldOriginalTransactionId), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "purchase_date"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldPurchaseDate), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "original_purchase_date"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldOriginalPurchaseDate), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "expires_date"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldExpiresDate), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "cancellation_date"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldCancellationDate), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+    inAppReceiptField->DefineOwnProperty(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "all"), Uint32::NewFromUnsigned(isolate, validator::InAppReceiptFieldAll), static_cast<PropertyAttribute>(ReadOnly | DontDelete)).Check();
+#endif
+    exports->Set(context, VALIDATOR_NEW_LOCAL_STRING_FROMUTF8(isolate, "InAppReceiptField"), inAppReceiptField).FromJust();
     
     validator::Validator::Init(exports);
 }
