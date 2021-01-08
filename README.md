@@ -1,4 +1,4 @@
-## Apple's in-app purchases local, on-device, receipt validator module for node.js.
+## Apple's in-app purchases local(on-device) receipt validator module for Node.js.
 [![Build Status](https://travis-ci.org/OlehKulykov/aiap-local-validator.svg?branch=master)](https://travis-ci.org/OlehKulykov/aiap-local-validator)
 -----------
 
