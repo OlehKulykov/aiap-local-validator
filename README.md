@@ -1,6 +1,6 @@
 ## Apple's in-app purchases local(on-device) receipt validator module for Node.js.
-![npm](https://img.shields.io/npm/v/plzmasdk)
-![node-current](https://img.shields.io/node/v/plzmasdk)
+![npm](https://img.shields.io/npm/v/aiap-local-validator)
+![node-current](https://img.shields.io/node/v/aiap-local-validator)
 [![Build Status](https://travis-ci.org/OlehKulykov/aiap-local-validator.svg?branch=master)](https://travis-ci.org/OlehKulykov/aiap-local-validator)
 -----------
 
