@@ -31,6 +31,13 @@
 
 namespace validator {
 
+    Exception::Exception(Exception && exception) noexcept : std::exception(),
+        _what(exception._what),
+        _code(exception._code),
+        _line(exception._line) {
+            exception._what = nullptr;
+    }
+
     Exception::Exception(const ExceptionCode code, const int line, const char * what) noexcept : std::exception(),
         _code(code),
         _line(line) {

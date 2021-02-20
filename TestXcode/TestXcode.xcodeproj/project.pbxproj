@@ -33,6 +33,8 @@
 		243009E9257E5117009CFB39 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		243009F1257E5125009CFB39 /* validator.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = validator.cpp; path = ../../src/validator.cpp; sourceTree = "<group>"; };
 		243009F9257E5D77009CFB39 /* libcrypto.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcrypto.a; path = ../../../../../opt/local/lib/libcrypto.a; sourceTree = "<group>"; };
+		24510A4B25E1080D00E06395 /* package.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; name = package.json; path = ../../package.json; sourceTree = "<group>"; };
+		24510A4C25E1080D00E06395 /* CHANGELOG */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = CHANGELOG; path = ../../CHANGELOG; sourceTree = "<group>"; };
 		24527085258F8372008F7244 /* date.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = date.h; path = ../../src/date.h; sourceTree = "<group>"; };
 		2481006125804B32003E73CF /* apple_base64.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = apple_base64.h; path = ../../src/apple_base64.h; sourceTree = "<group>"; };
 		2481CB3525A8F49000C11399 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../../README.md; sourceTree = "<group>"; };
@@ -91,6 +93,8 @@
 				243009F1257E5125009CFB39 /* validator.cpp */,
 				243009E9257E5117009CFB39 /* main.cpp */,
 				2481CB3525A8F49000C11399 /* README.md */,
+				24510A4C25E1080D00E06395 /* CHANGELOG */,
+				24510A4B25E1080D00E06395 /* package.json */,
 			);
 			path = TestXcode;
 			sourceTree = "<group>";

@@ -285,9 +285,13 @@ namespace validator {
         
         std::unique_ptr<BIO, BIODeleter> receiptPayload(std::vector<uint8_t> && receipts);
         void parseInAppReceiptPayload(const unsigned char * payload, const size_t payloadLen, Isolate * isolate, Local<Object> receiptObject);
-        
-    public:
         void validate(std::vector<uint8_t> && inReceipts, Isolate * isolate, Local<Object> receiptObject);
+        
+        Validator & operator = (const Validator &) = delete;
+        Validator & operator = (Validator &&) noexcept = delete;
+        Validator(const Validator &) = delete;
+        Validator(Validator &&) noexcept = delete;
+        Validator() : node::ObjectWrap() { }
         
         static void InAppReceiptFields(Local<String> property, const PropertyCallbackInfo<Value> & info);
         static void SetInAppReceiptFields(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> & info);
@@ -300,8 +304,10 @@ namespace validator {
         static void BundleIdentifier(Local<String> property, const PropertyCallbackInfo<Value> & info);
         static void SetBundleIdentifier(Local<String> property, Local<Value> value, const PropertyCallbackInfo<void> & info);
         static void Validate(const FunctionCallbackInfo<Value> & args);
-        static void Init(Local<Object> exports);
         static void New(const FunctionCallbackInfo<Value> & args);
+        
+    public:
+        static void Init(Local<Object> exports);
     };
     
     std::unique_ptr<BIO, BIODeleter> Validator::receiptPayload(std::vector<uint8_t> && receipts) {

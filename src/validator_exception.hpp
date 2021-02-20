@@ -43,10 +43,16 @@ namespace validator {
         ExceptionCode _code;
         int _line;
         
+        Exception & operator = (const Exception &) = delete;
+        Exception & operator = (Exception &&) noexcept = delete;
+        Exception(const Exception &) = delete;
+        Exception() = delete;
+        
     public:
         ExceptionCode code() const noexcept { return _code; }
         int line() const noexcept { return _line; }
         virtual const char * what() const noexcept { return _what; }
+        Exception(Exception && exception) noexcept;
         Exception(const ExceptionCode code = ExceptionCodeInternal, const int line = 0, const char * what = nullptr) noexcept;
         ~Exception() noexcept;
     };

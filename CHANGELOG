@@ -1,4 +1,7 @@
-1.0.1 (current):
+1.0.2 (current):
+- Native: minor Validator and Exception code improvements.
+
+1.0.1:
 - Node.js 10 & up support.
 
 1.0.0:

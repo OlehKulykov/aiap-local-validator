@@ -1,4 +1,4 @@
-## Apple's in-app purchases local(on-device) receipt validator module for Node.js.
+﻿## Apple's in-app purchases local(on-device) receipt validator module for Node.js.
 ![npm](https://img.shields.io/npm/v/aiap-local-validator)
 ![node-current](https://img.shields.io/node/v/aiap-local-validator)
 [![Build Status](https://travis-ci.org/OlehKulykov/aiap-local-validator.svg?branch=master)](https://travis-ci.org/OlehKulykov/aiap-local-validator)
@@ -126,7 +126,7 @@ https://developer.apple.com/library/archive/releasenotes/General/ValidateAppStor
     "npm": ">=6.0.0"
   },
   "dependencies": {
-    "aiap-local-validator": "^1.0.1"
+    "aiap-local-validator": "^1.0.2"
   }
 }
 ```
