@@ -27,7 +27,7 @@
 #include <cstdint>
 
 #ifndef __VALIDATOR_BASE64_HPP__
-#define __VALIDATOR_BASE64_HPP__
+#define __VALIDATOR_BASE64_HPP__ 1
 
 namespace validator {
     
