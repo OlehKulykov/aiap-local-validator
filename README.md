@@ -2,6 +2,7 @@
 [![npm](https://img.shields.io/npm/v/aiap-local-validator)](https://www.npmjs.com/package/aiap-local-validator)
 [![node-current](https://img.shields.io/node/v/aiap-local-validator)](https://www.npmjs.com/package/aiap-local-validator)
 [![Build Status](https://travis-ci.org/OlehKulykov/aiap-local-validator.svg?branch=master)](https://travis-ci.org/OlehKulykov/aiap-local-validator)
+[![Language grade: JavaScript](https://img.shields.io/lgtm/grade/javascript/g/OlehKulykov/aiap-local-validator.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/OlehKulykov/aiap-local-validator/context:javascript)
 -----------
 
 This module implements in-app purchases local receipt validation.
